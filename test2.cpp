@@ -3,10 +3,18 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "mpi.h"
+
 #define NANO_SECOND_MULTIPLIER  1000000  // 1 millisecond = 1,000,000 Nanoseconds
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
+	int numtasks, taskid;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+	MPI_Comm_rank(MPI_COMM_WORLD, &taskid);
+
+
 	int AC_event_set;
 	char** AC_events;
 	long long * AC_values;
@@ -21,9 +29,9 @@ int main(int argc, char const *argv[])
 
 	struct timespec tim;
 	tim.tv_sec = 0;
-	tim.tv_nsec = 100*NANO_SECOND_MULTIPLIER;
+	tim.tv_nsec = 500*NANO_SECOND_MULTIPLIER;
 
-	for (i = 0; i < 50; i++)
+	for (i = 0; i < 10; i++)
 	{
 		nanosleep(&tim, NULL);
 		fprintf(fp,"Sample %d\n", i);
@@ -31,9 +39,11 @@ int main(int argc, char const *argv[])
 	}
 	fclose(fp);
 	
-
 	//sleep(5);
 
-	EndRecordAriesCounters(1, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
+	EndRecordAriesCounters(taskid, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
+	
+	MPI_Finalize();
+
 	return 0;
 }
