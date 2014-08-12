@@ -1,0 +1,18 @@
+#!/bin/sh -v
+#PBS -V
+#PBS -q regular
+#PBS -l mppwidth=6144
+#PBS -l walltime=00:3:00
+#PBS -N ariescounters_mpitest
+#PBS -A m888
+#PBS -j oe
+
+export procs=4096
+export CRAY_NPU_ACCESS=2
+
+cd $PBS_O_WORKDIR
+
+aprun -cc 1-4,7-10,13-16,19-22 -n ${procs} -N 16 ./mpitest.out
+
+mkdir counterData
+mv counterData-* counterData
