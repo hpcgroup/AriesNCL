@@ -23,6 +23,10 @@ void StartRecordAriesCounters(int* AC_event_set, char*** AC_events, long long** 
 	FILE* fp;
 
 	fp = fopen("counters.txt", "r");
+	if (!fp)
+	{
+		printf("counters.txt file not found\n");
+	}
 
 	// Get number of counters so we can malloc space
 	// we are relying on \n, so it will cause errors later if the file pointer does not end in a blank line.
