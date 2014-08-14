@@ -113,14 +113,13 @@ void EndRecordAriesCounters(int preAppend, int* AC_event_set, char*** AC_events,
 
 	FILE* fp = fopen(filename, "w");
 	int i;
-	// In order to save space (since these files grow fast), the counter names are not shown
-	// We refer to them by the line number from the original counters.txt
 
 	for (i = 0; i < *AC_event_count; i++)
 	{
 		// I think %lld is not portable
 		//fprintf(fp, "%i %lld\n", i, (*AC_values)[i]);
-		fprintf("%s %lld\n", AC_events[i], AC_values[i]);
+		//printf("%s %lld\n", (*AC_events)[i], (*AC_values)[i]);
+		fprintf(fp, "%s %lld\n", (*AC_events)[i], (*AC_values)[i]);
 	}
 	fclose(fp);
 

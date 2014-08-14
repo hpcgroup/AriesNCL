@@ -2,13 +2,19 @@
 # named 'counterData.json'. Each entry is the counter name, and the value is
 # a list of counter values in order of nodes reporting. (typically every 16th)
 
+# BE VERY SURE YOU ARE RUNNING THIS CORRECTLY. IT WILL DELETE YOUR HARDWARE COUNTER LOGS
+
 import os
 import sys
 import json
 
-from pprint import pprint
-
 def cleanup(counter_folder_path, counters_txt_path):
+
+	# check if a counterData.json exists (been processed before)
+	for filename in os.listdir(counter_folder_path):
+		if filename.endswith('counterData.json'):
+			print '  No work needs to be done'
+			return
 
 	to_dump = dict()
 
@@ -33,12 +39,28 @@ def cleanup(counter_folder_path, counters_txt_path):
 				to_dump[counter_name].append(counter_value)
 
 	# write out
-	with open('counterData.json', 'w') as outfile:
+	with open(counter_folder_path + '/counterData.json', 'w') as outfile:
 		json.dump(to_dump, outfile)
+
+	# remove the counterData-* files
+	[ os.remove(counter_folder_path + '/' + f) for f in os.listdir(counter_folder_path) if f.startswith('counterData-')]
 
 
 def test():
 	cleanup(sys.argv[1], sys.argv[2])
 
+def CleanupAllDatasets(rootdir):
+	list_of_counterdata_folders = set()
+	for subdir, dirs, files in os.walk(rootdir):
+		#print 'examine', subdir
+		for subdir2, dirs2, files2 in os.walk(subdir):
+			#print subdir2
+			if subdir2.endswith('counterData'):
+				list_of_counterdata_folders.add(subdir2)
+
+	for folder in list_of_counterdata_folders:
+		print 'Cleaning up', folder
+		cleanup(folder, folder + '/../counters.txt')
+
 if __name__ == "__main__":
-	test()
+	CleanupAllDatasets(sys.argv[1])
