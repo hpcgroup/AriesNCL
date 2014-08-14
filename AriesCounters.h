@@ -9,13 +9,6 @@
 
 #define MAX_COUNTER_NAME_LENGTH 70
 
-//TODO: Get rid of global variables
-
-//int AC_event_set;
-//char** AC_events;
-//long long * AC_values;
-//int AC_event_count;
-
 void StartRecordAriesCounters(int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
 	*AC_event_set = PAPI_NULL;
@@ -126,8 +119,8 @@ void EndRecordAriesCounters(int preAppend, int* AC_event_set, char*** AC_events,
 	for (i = 0; i < *AC_event_count; i++)
 	{
 		// I think %lld is not portable
-		fprintf(fp, "%i %lld\n", i, (*AC_values)[i]);
-		//printf("%s %lld\n", AC_events[i], AC_values[i]);
+		//fprintf(fp, "%i %lld\n", i, (*AC_values)[i]);
+		fprintf("%s %lld\n", AC_events[i], AC_values[i]);
 	}
 	fclose(fp);
 
