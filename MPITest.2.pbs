@@ -1,0 +1,18 @@
+#!/bin/sh -v
+#PBS -V
+#PBS -q debug
+#PBS -l mppwidth=48
+#PBS -l walltime=00:03:00
+#PBS -N AC.dontwork
+#PBS -A m888
+#PBS -j oe
+
+cd $PBS_O_WORKDIR
+
+aprun -cc 1-4,7-10,13-16,19-22 -n 32 -N 16 ./mpitest.out
+
+mkdir test_folder
+cp counters.txt test_folder
+cd test_folder
+
+aprun -cc 1-4,7-10,13-16,19-22 -n 32 -N 16 ../mpitest.out
