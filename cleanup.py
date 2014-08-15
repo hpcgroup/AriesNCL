@@ -63,4 +63,7 @@ def CleanupAllDatasets(rootdir):
 		cleanup(folder, folder + '/../counters.txt')
 
 if __name__ == "__main__":
+	if len(sys.argv) != 2:
+		print 'Need 1 argument'
+		sys.exit(1)
 	CleanupAllDatasets(sys.argv[1])
