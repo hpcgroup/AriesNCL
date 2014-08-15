@@ -23,8 +23,6 @@ def cleanup(counter_folder_path, counters_txt_path):
 	for counter_name in counter_list:
 		to_dump[counter_name] = list()
 
-	maxNum = 0
-
 	for f in os.listdir(counter_folder_path):
 		if f.startswith('counterData-'):
 			#process this
