@@ -8,6 +8,10 @@ import os
 import sys
 import json
 
+import zipfile
+import zlib
+
+# DEPRECIATED
 def cleanup(counter_folder_path, counters_txt_path):
 
 	# check if a counterData.json exists (been processed before)
@@ -30,10 +34,13 @@ def cleanup(counter_folder_path, counters_txt_path):
 			for counter_entry in counter_values:
 				# looks like 2 numbers seperated by a space
 				split = counter_entry.split()
+
 				counter_name = split[0]
 				counter_value = int(split[1])
-				# NOTE: values can reach longlong but I've only seen 10^10 or so
+				
+				# if 
 
+				# NOTE: values can reach longlong but I've only seen 10^10 or so
 				to_dump[counter_name].append(counter_value)
 
 	# write out
@@ -42,10 +49,6 @@ def cleanup(counter_folder_path, counters_txt_path):
 
 	# remove the counterData-* files
 	[ os.remove(counter_folder_path + '/' + f) for f in os.listdir(counter_folder_path) if f.startswith('counterData-')]
-
-
-def test():
-	cleanup(sys.argv[1], sys.argv[2])
 
 def CleanupAllDatasets(rootdir):
 	list_of_counterdata_folders = set()
@@ -58,7 +61,15 @@ def CleanupAllDatasets(rootdir):
 
 	for folder in list_of_counterdata_folders:
 		print 'Cleaning up', folder
-		cleanup(folder, folder + '/../counters.txt')
+		#cleanup(folder, folder + '/../counters.txt')
+		CompressFolder(folder)
+
+def CompressFolder(folder):
+	zf = zipfile.ZipFile('CounterData.zip', mode='w')
+	for filename in os.listdir(folder):
+		if filename.startswith('counterData-'):
+			zf.write(filename, compress_type=zipfile.ZIP_DEFLATED)
+	zf.close()
 
 if __name__ == "__main__":
 	if len(sys.argv) != 2:
