@@ -11,8 +11,10 @@ import json
 import zipfile
 import zlib
 
-# DEPRECIATED
+import warnings
+
 def cleanup(counter_folder_path, counters_txt_path):
+	warnings.warn('This function is no longer used', DeprecationWarning)
 
 	# check if a counterData.json exists (been processed before)
 	for filename in os.listdir(counter_folder_path):
@@ -27,18 +29,17 @@ def cleanup(counter_folder_path, counters_txt_path):
 	for counter_name in counter_list:
 		to_dump[counter_name] = list()
 
+	# Now go through all the counter files
 	for f in os.listdir(counter_folder_path):
 		if f.startswith('counterData-'):
 			#process this
 			counter_values = [line.strip() for line in open(counter_folder_path+'/'+f)]
 			for counter_entry in counter_values:
-				# looks like 2 numbers seperated by a space
+				# looks like "COUNTER_NAME VALUE"
 				split = counter_entry.split()
 
 				counter_name = split[0]
 				counter_value = int(split[1])
-				
-				# if 
 
 				# NOTE: values can reach longlong but I've only seen 10^10 or so
 				to_dump[counter_name].append(counter_value)
@@ -53,9 +54,7 @@ def cleanup(counter_folder_path, counters_txt_path):
 def CleanupAllDatasets(rootdir):
 	list_of_counterdata_folders = set()
 	for subdir, dirs, files in os.walk(rootdir):
-		#print 'examine', subdir
 		for subdir2, dirs2, files2 in os.walk(subdir):
-			#print subdir2
 			if subdir2.endswith('counterData'):
 				list_of_counterdata_folders.add(subdir2)
 
@@ -63,16 +62,26 @@ def CleanupAllDatasets(rootdir):
 		print 'Cleaning up', folder
 		#cleanup(folder, folder + '/../counters.txt')
 		CompressFolder(folder)
+		RemoveCounterFiles(folder)
 
 def CompressFolder(folder):
+	os.chdir(folder)
+	if os.path.isfile('CounterData.zip'):
+		print 'Nothing to be done'
+		return
 	zf = zipfile.ZipFile('CounterData.zip', mode='w')
 	for filename in os.listdir(folder):
 		if filename.startswith('counterData-'):
 			zf.write(filename, compress_type=zipfile.ZIP_DEFLATED)
 	zf.close()
 
+def RemoveCounterFiles(folder):
+	os.chdir(folder)
+	# remove the counterData-* files
+	[ os.remove(f) for f in os.listdir(folder) if f.startswith('counterData-')]
+
 if __name__ == "__main__":
 	if len(sys.argv) != 2:
-		print 'Need 1 argument'
+		print 'Need 1 argument: rootdir for folders to cleanup'
 		sys.exit(1)
 	CleanupAllDatasets(sys.argv[1])
