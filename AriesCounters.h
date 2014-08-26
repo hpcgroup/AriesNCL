@@ -119,7 +119,7 @@ void EndRecordAriesCounters(int preAppend, int* AC_event_set, char*** AC_events,
 		// I think %lld is not portable
 		//fprintf(fp, "%i %lld\n", i, (*AC_values)[i]);
 		//printf("%s %lld\n", (*AC_events)[i], (*AC_values)[i]);
-		fprintf(fp, "%s %lld\n", (*AC_events)[i], (*AC_values)[i]);
+		fprintf(fp, "%d %lld\n", i, (*AC_values)[i]);
 	}
 	fclose(fp);
 

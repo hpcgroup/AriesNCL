@@ -1,6 +1,6 @@
 # If make fails, make sure papi module is loaded! Also try unloading darshan
 
-CFLAGS = -O0 -g -Wall
+CFLAGS = -O2 -g -Wall
 LFLAGS = -lstdc++
 all: counter.out sample.out
 
