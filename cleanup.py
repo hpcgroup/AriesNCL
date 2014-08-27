@@ -107,9 +107,9 @@ def CleanupAllDatasets(rootdir):
 	for folder in list_of_counterdata_folders:
 		print 'Cleaning up', folder
 		#cleanup(folder, folder + '/../counters.txt')
-		ToJson(folder, './counters.txt')
-		#CompressFolder(folder)
-		#RemoveCounterFiles(folder)
+		ToJson(folder, folder + '/../counters.txt')
+		CompressFolder(folder)
+		RemoveCounterFiles(folder)
 
 def CompressFolder(folder):
 	os.chdir(folder)
