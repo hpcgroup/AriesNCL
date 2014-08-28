@@ -3,14 +3,26 @@
 
 #include <papi.h>
 #include <stdio.h> // I/O
-#include <stdlib.h> // Malloc
+#include <stdlib.h> // Malloc, atoi
 #include <string.h> // strcpy, strcat
 #include <unistd.h> // sleep
+#include <ctype.h> // isdigit
+
+#include "mpi.h"
 
 #define MAX_COUNTER_NAME_LENGTH 70
 
-void StartRecordAriesCounters(int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void InitAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
+	if (my_rank % reporting_rank_mod != 0)
+	{
+		*AC_event_set = 0;
+		*AC_events = 0;
+		*AC_values = 0;
+		*AC_event_count = 0;
+		return;
+	}
+	
 	*AC_event_set = PAPI_NULL;
 
 	FILE* fp;
@@ -33,8 +45,6 @@ void StartRecordAriesCounters(int* AC_event_set, char*** AC_events, long long** 
 	  }
 	}	
 	*AC_event_count = linecount;
-
-	//printf("Linecount: %d\n", linecount);
 
 	// Make space for all the counters
 	*AC_events = (char**)malloc(sizeof(char*) * (*AC_event_count));
@@ -77,60 +87,134 @@ void StartRecordAriesCounters(int* AC_event_set, char*** AC_events, long long** 
 		PAPI_event_name_to_code((*AC_events)[i], &code);
 		PAPI_add_event(*AC_event_set, code);
 	}
-	PAPI_start(*AC_event_set);
-
-	// The counters don't seem to report numbers if we start right away
-	//sleep(1);
 }
 
-void SampleAriesCounters(FILE* fp, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
-	PAPI_stop(*AC_event_set, *AC_values);
+	if (my_rank % reporting_rank_mod != 0) { return; }
 	
-	int i = 0;
-	for (i = 0; i < *AC_event_count; i++)
-	{
-		fprintf(fp, "%s %lld\n", (*AC_events)[i], (*AC_values)[i]);
-	}
-
 	PAPI_start(*AC_event_set);
 }
 
 // This is the value to put in the output file with format counterData-XXX.txt
-void EndRecordAriesCounters(int preAppend, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
-	// Similar to the sleep in startrecord
-	//sleep(1);
+	if (my_rank % reporting_rank_mod != 0) { return; }
+
+	int number_of_reporting_ranks;
+	// Array to store counter data
+	long long * counter_data;
 
 	PAPI_stop(*AC_event_set, *AC_values);
 
-	// write out counter data
-	char filename[70] = "counterData-";
-	char preAppend_str[10];
-	sprintf(preAppend_str, "%d", preAppend); // int to char*
-	strcat(filename, preAppend_str);
-	strcat(filename, ".txt");
-
-	FILE* fp = fopen(filename, "w");
-	int i;
-
-	for (i = 0; i < *AC_event_count; i++)
+	int size;
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	MPI_Comm_rank (MPI_COMM_WORLD, &my_rank);
+	number_of_reporting_ranks = (size-1)/reporting_rank_mod + 1; // integer division is fine; we want the floor
+	
+	/* Rank 0 needs to write out counter info.
+	   First space needs to be allocated to recieve the data */
+	// Array of longlong equal to number of reporting ranks * number of counters
+	if (my_rank == 0)
 	{
-		// I think %lld is not portable
-		//fprintf(fp, "%i %lld\n", i, (*AC_values)[i]);
-		//printf("%s %lld\n", (*AC_events)[i], (*AC_values)[i]);
-		fprintf(fp, "%d %lld\n", i, (*AC_values)[i]);
+		counter_data = (long long*)malloc(sizeof(long long) * number_of_reporting_ranks * *AC_event_count); 
 	}
-	fclose(fp);
 
+	/* MPI_Gather to collect counters from all ranks % 0 */
+	MPI_Gather(*AC_values, *AC_event_count, MPI_LONG_LONG,
+		counter_data, *AC_event_count, MPI_LONG_LONG, 0, *mod16_comm);
+
+	/*
+	int* s = (int*)malloc(sizeof(int)*2);
+	s[0] = 1;
+	s[1] = 3;
+	int* store = (int*)malloc(sizeof(int) * 64);
+
+	MPI_Gather(s, 2, MPI_INT, store, 2, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	free(store);
+	*/
+
+	if (my_rank == 0)
+	{
+		int i,j;
+		
+		FILE* fp = fopen("counterData.yaml", "w");
+		/* print out in yaml -- same format as in boxfish */
+		fprintf(fp, "---\nkey: ARIESCOUNTER_ORIGINAL\n---\n");
+		fprintf(fp, "- [mpirank, int32]\n");
+		fprintf(fp, "- [tilex, int32]\n");
+		fprintf(fp, "- [tiley, int32]\n");
+
+		for (i=0; i<*AC_event_count; i++)
+		{
+			fprintf(fp, "- [%s, int128]\n", (*AC_events)[i]);
+		}
+		fprintf(fp, "...");
+
+		// for each reporting rank...
+		for (i=0; i<number_of_reporting_ranks; i++)
+		{
+			int reporting_rank = i * reporting_rank_mod;
+			int new_coord = 1; // 1=True, 0=False. This determines whether we should go to new line
+			int x=-1, y=-1;
+
+			// loop through counters of this particular rank
+			// this loop assumes that once a coordinate comes up, (i.e. a particular XY)
+			// all the other counters of that coord will directly follow
+			// and the coordinate will not show up again once a different coordinate appears
+			for (j=0; j<*AC_event_count; j++)
+			{
+				// need to extract network tile coordinates from counter name
+				// XY is either at pos 7 and 9 or 10 and 12
+				if (isdigit((*AC_events)[j][7]))
+				{
+					if ((*AC_events)[j][7] - '0' != x || (*AC_events)[j][9] - '0' != y)
+					{
+						new_coord = 1;
+					}
+					x = (*AC_events)[j][7] - '0';
+					y = (*AC_events)[j][9] - '0';
+				}
+				else
+				{
+					if ((*AC_events)[j][10] - '0' != x || (*AC_events)[j][12] - '0' != y)
+					{
+						new_coord = 1;
+					}
+					x = (*AC_events)[j][10] - '0';
+					y = (*AC_events)[j][12] - '0';
+				}
+				if (new_coord)
+				{
+					fprintf(fp, "\n%d %d %d", reporting_rank, x, y);
+					new_coord = 0;
+				}
+				fprintf(fp, " %lld", counter_data[i * (*AC_event_count) + j]);
+			}
+		}
+		fclose(fp);
+
+		// Cleanup counter_data
+		// If this is called really often, it may be better to malloc once
+		// and save it for future uses.
+		free(counter_data);
+	}
+}
+
+void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+{
+	if (my_rank % reporting_rank_mod != 0) { return; }
+	
 	// cleanup malloc
-	// Not working with MPI right now...? Some sort of bug
+	int i;
 	for (i = 0; i < *AC_event_count; i++)
 	{
-		//free((*AC_events)[i]);
+		free((*AC_events)[i]);
 	}
-	//free(*AC_events);
-	//free(*AC_values);
+	free(*AC_events);
+	free(*AC_values);
 
 	PAPI_cleanup_eventset(*AC_event_set);
 	PAPI_destroy_eventset(AC_event_set);
