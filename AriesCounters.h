@@ -147,10 +147,36 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 		fprintf(fp, "- [tilex, int32]\n");
 		fprintf(fp, "- [tiley, int32]\n");
 
-		for (i=0; i<*AC_event_count; i++)
-		{
-			fprintf(fp, "- [%s, int128]\n", (*AC_events)[i]);
-		}
+		//for (i=0; i<*AC_event_count; i++)
+		//{
+		//	fprintf(fp, "- [\"%s\", int128]\n", (*AC_events)[i]);
+		//}
+		fprintf(fp, "- [COLBUF_PERF_STALL_RQ:COL_BUF_PERF_STALL_RQ, int128]\n");
+		fprintf(fp, "- [COLBUF_PERF_STALL_RQ:VC_PTR, int128]\n");
+		fprintf(fp, "- [COLBUF_PERF_STALL_RS:COL_BUF_PERF_STALL_RS, int128]\n");
+		fprintf(fp, "- [COLBUF_PERF_STALL_RS:VC_PTR, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC0, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC1, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC2, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC3, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC4, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC5, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC6, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC7, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC0_FILTER_FLIT0_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC1_FILTER_FLIT1_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC2_FILTER_FLIT2_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC3_FILTER_FLIT3_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC4_FILTER_FLIT4_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC5_FILTER_FLIT5_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC6_FILTER_FLIT6_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC7_FILTER_FLIT7_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_MATCH_FLIT_3_TO_0_FILTERING_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_MATCH_FLIT_7_TO_4_FILTERING_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_PKT_TO_DEAD_LINK_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_ROWBUS_2X_USAGE_CNT, int128]\n");
+		fprintf(fp, "- [INQ_PRF_ROWBUS_STALL_CNT, int128]\n");
+
 		fprintf(fp, "...");
 
 		// for each reporting rank...

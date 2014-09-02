@@ -1,7 +1,7 @@
 # If make fails, make sure papi module is loaded! Also try unloading darshan
 
 CC = cc
-CFLAGS = -O0 -g -Wall
+CFLAGS = -O3 -g -Wall
 LFLAGS = -ldl
 all: mpitest.out
 
