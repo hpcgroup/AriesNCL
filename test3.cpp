@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	
 	sleep(10);
 
-	EndRecordAriesCounters(&mod16_comm, taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
+	EndRecordAriesCounters(&mod16_comm, taskid, 16, 123.456, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
 	FinalizeAriesCounters(taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
 	
 	MPI_Finalize();

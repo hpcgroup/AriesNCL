@@ -97,7 +97,7 @@ void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event
 }
 
 // This is the value to put in the output file with format counterData-XXX.txt
-void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
 
@@ -124,25 +124,16 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 	MPI_Gather(*AC_values, *AC_event_count, MPI_LONG_LONG,
 		counter_data, *AC_event_count, MPI_LONG_LONG, 0, *mod16_comm);
 
-	/*
-	int* s = (int*)malloc(sizeof(int)*2);
-	s[0] = 1;
-	s[1] = 3;
-	int* store = (int*)malloc(sizeof(int) * 64);
-
-	MPI_Gather(s, 2, MPI_INT, store, 2, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	free(store);
-	*/
-
 	if (my_rank == 0)
 	{
 		int i,j;
 		
-		FILE* fp = fopen("counterData.yaml", "w");
+		FILE* fp = fopen("networktiles.yaml", "w");
 		/* print out in yaml -- same format as in boxfish */
-		fprintf(fp, "---\nkey: ARIESCOUNTER_ORIGINAL\n---\n");
+		fprintf(fp, "---\nkey: ARIESCOUNTER_NETWORK\n---\n");
+		fprintf(fp, "- jobid: %s\n", getenv("PBS_JOBID"));
+		fprintf(fp, "- timestamp: %s\n", getenv("savedir"));
+		fprintf(fp, "- runtime: %lf\n---\n", run_time);
 		fprintf(fp, "- [mpirank, int32]\n");
 		fprintf(fp, "- [tilex, int32]\n");
 		fprintf(fp, "- [tiley, int32]\n");
@@ -151,31 +142,31 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 		//{
 		//	fprintf(fp, "- [\"%s\", int128]\n", (*AC_events)[i]);
 		//}
-		fprintf(fp, "- [COLBUF_PERF_STALL_RQ:COL_BUF_PERF_STALL_RQ, int128]\n");
-		fprintf(fp, "- [COLBUF_PERF_STALL_RQ:VC_PTR, int128]\n");
-		fprintf(fp, "- [COLBUF_PERF_STALL_RS:COL_BUF_PERF_STALL_RS, int128]\n");
-		fprintf(fp, "- [COLBUF_PERF_STALL_RS:VC_PTR, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC0, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC1, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC2, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC3, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC4, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC5, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC6, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_FLIT_VC7, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC0_FILTER_FLIT0_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC1_FILTER_FLIT1_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC2_FILTER_FLIT2_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC3_FILTER_FLIT3_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC4_FILTER_FLIT4_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC5_FILTER_FLIT5_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC6_FILTER_FLIT6_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_INCOMING_PKT_VC7_FILTER_FLIT7_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_MATCH_FLIT_3_TO_0_FILTERING_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_MATCH_FLIT_7_TO_4_FILTERING_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_PKT_TO_DEAD_LINK_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_ROWBUS_2X_USAGE_CNT, int128]\n");
-		fprintf(fp, "- [INQ_PRF_ROWBUS_STALL_CNT, int128]\n");
+		fprintf(fp, "- [\"COLBUF_PERF_STALL_RQ:COL_BUF_PERF_STALL_RQ\", int128]\n");
+		fprintf(fp, "- [\"COLBUF_PERF_STALL_RQ:VC_PTR\", int128]\n");
+		fprintf(fp, "- [\"COLBUF_PERF_STALL_RS:COL_BUF_PERF_STALL_RS\", int128]\n");
+		fprintf(fp, "- [\"COLBUF_PERF_STALL_RS:VC_PTR\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC0\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC1\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC2\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC3\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC4\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC5\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC6\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC7\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC0_FILTER_FLIT0_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC1_FILTER_FLIT1_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC2_FILTER_FLIT2_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC3_FILTER_FLIT3_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC4_FILTER_FLIT4_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC5_FILTER_FLIT5_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC6_FILTER_FLIT6_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC7_FILTER_FLIT7_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_3_TO_0_FILTERING_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_7_TO_4_FILTERING_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_PKT_TO_DEAD_LINK_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_ROWBUS_2X_USAGE_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_ROWBUS_STALL_CNT\", int128]\n");
 
 		fprintf(fp, "...");
 
@@ -212,12 +203,92 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 					x = (*AC_events)[j][10] - '0';
 					y = (*AC_events)[j][12] - '0';
 				}
-				if (new_coord)
+				if (new_coord && x != 5)
 				{
 					fprintf(fp, "\n%d %d %d", reporting_rank, x, y);
 					new_coord = 0;
 				}
-				fprintf(fp, " %lld", counter_data[i * (*AC_event_count) + j]);
+				if (x != -1 && x != 5 && y != -1)
+				{
+					fprintf(fp, " %lld", counter_data[i * (*AC_event_count) + j]);
+				}
+			}
+		}
+		fclose(fp);
+
+		fp = fopen("proctiles.yaml", "w");
+		/* print out in yaml -- same format as in boxfish */
+		fprintf(fp, "---\nkey: ARIESCOUNTER_PROC\n---\n");
+		fprintf(fp, "- jobid: %s\n", getenv("PBS_JOBID"));
+		fprintf(fp, "- timestamp: %s\n", getenv("savedir"));
+		fprintf(fp, "- runtime: %lf\n---\n", run_time);
+		fprintf(fp, "- [mpirank, int32]\n");
+		fprintf(fp, "- [tilex, int32]\n");
+		fprintf(fp, "- [tiley, int32]\n");
+
+		fprintf(fp, "- [\"COLBUF_PERF_STALL_RQ\", int128]\n");
+		fprintf(fp, "- [\"COLBUF_PERF_STALL_RS\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC0\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC4\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC0_FILTER_FLIT0_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC1_FILTER_FLIT1_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC2_FILTER_FLIT2_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC3_FILTER_FLIT3_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC4_FILTER_FLIT4_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC5_FILTER_FLIT5_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC6_FILTER_FLIT6_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC7_FILTER_FLIT7_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_3_TO_0_FILTERING_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_7_TO_4_FILTERING_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_PKT_TO_DEAD_LINK_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_REQ_ROWBUS_STALL_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_ROWBUS_2X_USAGE_CNT\", int128]\n");
+		fprintf(fp, "- [\"INQ_PRF_RSP_ROWBUS_STALL_CNT\", int128]\n");
+
+		fprintf(fp, "...");
+
+		// for each reporting rank...
+		for (i=0; i<number_of_reporting_ranks; i++)
+		{
+			int reporting_rank = i * reporting_rank_mod;
+			int new_coord = 1; // 1=True, 0=False. This determines whether we should go to new line
+			int x=-1, y=-1;
+
+			// loop through counters of this particular rank
+			// this loop assumes that once a coordinate comes up, (i.e. a particular XY)
+			// all the other counters of that coord will directly follow
+			// and the coordinate will not show up again once a different coordinate appears
+			for (j=0; j<*AC_event_count; j++)
+			{
+				// need to extract network tile coordinates from counter name
+				// XY is either at pos 7 and 9 or 10 and 12
+				if (isdigit((*AC_events)[j][7]))
+				{
+					if ((*AC_events)[j][7] - '0' != x || (*AC_events)[j][9] - '0' != y)
+					{
+						new_coord = 1;
+					}
+					x = (*AC_events)[j][7] - '0';
+					y = (*AC_events)[j][9] - '0';
+				}
+				else
+				{
+					if ((*AC_events)[j][10] - '0' != x || (*AC_events)[j][12] - '0' != y)
+					{
+						new_coord = 1;
+					}
+					x = (*AC_events)[j][10] - '0';
+					y = (*AC_events)[j][12] - '0';
+				}
+				if (new_coord && x == 5 && y != -1)
+				{
+					fprintf(fp, "\n%d %d %d", reporting_rank, x, y);
+					new_coord = 0;
+				}
+				if (x == 5 && y != -1)
+				{
+					fprintf(fp, " %lld", counter_data[i * (*AC_event_count) + j]);
+				}
 			}
 		}
 		fclose(fp);
