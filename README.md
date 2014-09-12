@@ -1,11 +1,17 @@
 ###Aries Hardware Counters
 
-Includes both a C and C++ version. To change, just uncomment the target for your language in the Makefile and update the 2 function calls in test.c, test2.cpp.
+A pretty simple header file for everything related to Aries Hardware counters. The code does not currently support configurable counters, though the API through PAPI is there.
 
 For C (AriesCounters.h):
 
- * void StartRecordAriesCounters()
- * void EndRecordAriesCounters(int preAppend)
+ * void InitAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+    * Call this first! This initializes PAPI and sets up the counters. It expects a file called 'counters.txt' in the same directory as the executable with a newline-delimeted list of counter names to record
+ * void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+    * Starts recording counters.
+ * void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+    * Ends recording counters. Writes out to two YAML files (networktiles.yaml and proctiles.yaml). See boxfish for format
+ * void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+ 	* Cleans up memory, stops PAPI.
 
 -Depreciated!- I suggest using the C version
 For C++ (AriesCounters.hpp, AriesCounters.cpp):
@@ -21,10 +27,19 @@ The standard Makefile should be enough. If you only want to compile the library 
 Make sure module papi is loaded before compiling. You may also need to unload the darshan module.
 
 ####Running tests
-There are two test programs in the repo. Make will create them (solo.out and counter.out)
-The files are hardcoded to read which counters to track from a file called 'counters.txt'. Make sure this file has an empty line at the end of the program.
-These must be run on nodes with papi support (ie Cray's NPU component). All of Edison's compute nodes have this.
-counter.out is an MPI program and must be ran with aprun (at least 2 cores). The counter data is dumped into files with the format counterData-##.txt where the number is the MPI rank.
+The main test is test3.cpp, which creates mpitest.out. It is a MPI program. Within folder 'old' are other tests including non-MPI ones.
+To setup the variables required by the function calls look at test3.cpp or the following:
+	MPI_Group mod16_group, group_world;
+	MPI_Comm mod16_comm;
+	int members[2];
+	int rank;
+	for (rank=0; rank<2; rank++)
+	{
+		members[rank] = rank*16; // Change this to your reporting_rank_mod
+	}
+	MPI_Comm_group(MPI_COMM_WORLD, &group_world);
+	MPI_Group_incl(group_world, 2, members, &mod16_group);
+	MPI_Comm_create(MPI_COMM_WORLD, mod16_group, &mod16_comm);
+Since every node will record the same counter information, we only record it on one rank per node (we could have up to 3 redudant records on Edison but we cannot easily figure out how many nodes we own on a router). The reporting_rank_mod is the number of ranks per node.
 
-####Cleanup
-The C code is made to be lightweight and fast. The output is not terribly user-friendly. There is a script called cleanup.py that will make the data easier to work with. Just give it as an argument the top level folder which all runs are contained (or the path to a single run's folder). It will take the files and generate a JSON file with all the data, indexed by mpi-rank, then by an XY string representing the coordinates of the network tile. The values are a list of integers, representing the counter values. They are in order, alphanumerically the same way the counters.txt file is listed.
+These must be run on nodes with papi support (ie Cray's NPU component). All of Edison's compute nodes have this.
