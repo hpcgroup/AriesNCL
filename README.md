@@ -29,6 +29,7 @@ Make sure module papi is loaded before compiling. You may also need to unload th
 ####Running tests
 The main test is test3.cpp, which creates mpitest.out. It is a MPI program. Within folder 'old' are other tests including non-MPI ones.
 To setup the variables required by the function calls look at test3.cpp or the following:
+
 	MPI_Group mod16_group, group_world;
 	MPI_Comm mod16_comm;
 	int members[2];
@@ -40,6 +41,7 @@ To setup the variables required by the function calls look at test3.cpp or the f
 	MPI_Comm_group(MPI_COMM_WORLD, &group_world);
 	MPI_Group_incl(group_world, 2, members, &mod16_group);
 	MPI_Comm_create(MPI_COMM_WORLD, mod16_group, &mod16_comm);
+	
 Since every node will record the same counter information, we only record it on one rank per node (we could have up to 3 redudant records on Edison but we cannot easily figure out how many nodes we own on a router). The reporting_rank_mod is the number of ranks per node.
 
 These must be run on nodes with papi support (ie Cray's NPU component). All of Edison's compute nodes have this.
