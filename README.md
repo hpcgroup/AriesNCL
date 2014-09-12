@@ -11,7 +11,7 @@ For C (AriesCounters.h):
  * void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
     * Ends recording counters. Writes out to two YAML files (networktiles.yaml and proctiles.yaml). See boxfish for format
  * void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
- 	* Cleans up memory, stops PAPI.
+    * Cleans up memory, stops PAPI.
 
 -Depreciated!- I suggest using the C version
 For C++ (AriesCounters.hpp, AriesCounters.cpp):
@@ -41,7 +41,7 @@ To setup the variables required by the function calls look at test3.cpp or the f
 	MPI_Comm_group(MPI_COMM_WORLD, &group_world);
 	MPI_Group_incl(group_world, 2, members, &mod16_group);
 	MPI_Comm_create(MPI_COMM_WORLD, mod16_group, &mod16_comm);
-	
+
 Since every node will record the same counter information, we only record it on one rank per node (we could have up to 3 redudant records on Edison but we cannot easily figure out how many nodes we own on a router). The reporting_rank_mod is the number of ranks per node.
 
 These must be run on nodes with papi support (ie Cray's NPU component). All of Edison's compute nodes have this.
