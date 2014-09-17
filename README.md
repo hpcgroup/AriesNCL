@@ -30,16 +30,22 @@ Make sure module papi is loaded before compiling. You may also need to unload th
 The main test is test3.cpp, which creates mpitest.out. It is a MPI program. Within folder 'old' are other tests including non-MPI ones.
 To setup the variables required by the function calls look at test3.cpp or the following:
 
+	int AC_event_set;
+	char** AC_events;
+	long long * AC_values;
+	int AC_event_count;
+	int numtasks;
+	MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
 	MPI_Group mod16_group, group_world;
 	MPI_Comm mod16_comm;
-	int members[2];
+	int members[(numtasks-1)/16 + 1];
 	int rank;
-	for (rank=0; rank<2; rank++)
+	for (rank=0; rank<((numtasks-1)/16 + 1); rank++)
 	{
-		members[rank] = rank*16; // Change this to your reporting_rank_mod
+	members[rank] = rank*16;
 	}
 	MPI_Comm_group(MPI_COMM_WORLD, &group_world);
-	MPI_Group_incl(group_world, 2, members, &mod16_group);
+	MPI_Group_incl(group_world, ((numtasks-1)/16 + 1), members, &mod16_group);
 	MPI_Comm_create(MPI_COMM_WORLD, mod16_group, &mod16_comm);
 
 Since every node will record the same counter information, we only record it on one rank per node (we could have up to 3 redudant records on Edison but we cannot easily figure out how many nodes we own on a router). The reporting_rank_mod is the number of ranks per node.
