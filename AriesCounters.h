@@ -7,11 +7,37 @@
 #include <string.h> // strcpy, strcat
 #include <unistd.h> // sleep
 #include <ctype.h> // isdigit
+#include <sys/time.h> // gettimeofday
 
 #include "mpi.h"
 
 #define MAX_COUNTER_NAME_LENGTH 70
 
+/* counter for regions/timesteps profiled */
+int region = 1;
+
+/* utilities for timing each region/timestep */
+struct timeval tempo1, tempo2;
+long elapsed_utime; 	/* elapsed time in microseconds */
+long elapsed_mtime; 	/* elapsed time in milliseconds */
+long elapsed_seconds; 	/* diff between seconds counter */
+long elapsed_useconds; 	/* diff between microseconds counter */
+
+void StartSysTimer() {
+	gettimeofday(&tempo1, NULL);
+}
+
+void EndSysTimer() {
+	gettimeofday(&tempo2, NULL);
+
+	elapsed_seconds = tempo2.tv_sec - tempo1.tv_sec;
+	elapsed_useconds = tempo2.tv_usec - tempo1.tv_usec;
+
+	elapsed_utime = (elapsed_seconds) * 1000000 + elapsed_useconds;
+	elapsed_mtime = ((elapsed_seconds) * 1000 + elapsed_useconds/1000.0) + 0.5;
+}
+
+/* library methods */
 void InitAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
 	if (my_rank % reporting_rank_mod != 0)
@@ -93,7 +119,11 @@ void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
 	
+	printf("counters: Starting counters for timestep.\n");
 	PAPI_start(*AC_event_set);
+
+	// Start a timer to measure elapsed time
+	StartSysTimer();	
 }
 
 // This is the value to put in the output file with format counterData-XXX.txt
@@ -101,11 +131,16 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
 
+	// Stop timer for elapsed time
+	EndSysTimer();
+
 	int number_of_reporting_ranks;
 	// Array to store counter data
 	long long * counter_data;
 
+	printf("counters: Writing out counters for timestep.\n");
 	PAPI_stop(*AC_event_set, *AC_values);
+	PAPI_reset(*AC_event_set);
 
 	int size;
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -128,12 +163,14 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 	{
 		int i,j;
 		
-		FILE* fp = fopen("networktiles.yaml", "w");
+		char filename[30];
+		sprintf(filename, "networktiles.%d.yaml", region);
+		FILE* fp = fopen(filename, "w");
 		/* print out in yaml -- same format as in boxfish */
 		fprintf(fp, "---\nkey: ARIESCOUNTER_NETWORK\n---\n");
 		fprintf(fp, "- jobid: %s\n", getenv("PBS_JOBID"));
 		fprintf(fp, "- timestamp: %s\n", getenv("savedir"));
-		fprintf(fp, "- runtime: %lf\n---\n", run_time);
+		fprintf(fp, "- elapsedtime: %ld\n---\n", elapsed_mtime);
 		fprintf(fp, "- [mpirank, int32]\n");
 		fprintf(fp, "- [tilex, int32]\n");
 		fprintf(fp, "- [tiley, int32]\n");
@@ -216,12 +253,13 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 		}
 		fclose(fp);
 
-		fp = fopen("proctiles.yaml", "w");
+		sprintf(filename, "proctiles.%d.yaml", region);
+		fp = fopen(filename, "w");
 		/* print out in yaml -- same format as in boxfish */
 		fprintf(fp, "---\nkey: ARIESCOUNTER_PROC\n---\n");
 		fprintf(fp, "- jobid: %s\n", getenv("PBS_JOBID"));
 		fprintf(fp, "- timestamp: %s\n", getenv("savedir"));
-		fprintf(fp, "- runtime: %lf\n---\n", run_time);
+		fprintf(fp, "- elapsedtime: %ld\n---\n", elapsed_mtime);
 		fprintf(fp, "- [mpirank, int32]\n");
 		fprintf(fp, "- [tilex, int32]\n");
 		fprintf(fp, "- [tiley, int32]\n");
@@ -292,6 +330,8 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 			}
 		}
 		fclose(fp);
+
+		region++;
 
 		// Cleanup counter_data
 		// If this is called really often, it may be better to malloc once
