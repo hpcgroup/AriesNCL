@@ -118,8 +118,11 @@ void InitAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, c
 void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
-	
-	printf("counters: Starting counters for timestep.\n");
+
+	if (my_rank == 0) {	
+	  printf("counters: Starting counters for timestep.\n");
+	}
+
 	PAPI_start(*AC_event_set);
 
 	// Start a timer to measure elapsed time
@@ -131,6 +134,10 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
 
+	if (my_rank == 0) { 
+	  printf("counters: Writing out counters for timestep.\n");
+	}
+
 	// Stop timer for elapsed time
 	EndSysTimer();
 
@@ -138,7 +145,6 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 	// Array to store counter data
 	long long * counter_data;
 
-	printf("counters: Writing out counters for timestep.\n");
 	PAPI_stop(*AC_event_set, *AC_values);
 	PAPI_reset(*AC_event_set);
 
