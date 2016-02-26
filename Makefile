@@ -1,17 +1,18 @@
 # If make fails, make sure papi module is loaded! Also try unloading darshan
 
-CC = cc
-CFLAGS = -O3 -g -Wall
-LFLAGS = -ldl
-all: mpitest.out
+CC	= cc
+CFLAGS	= -O3 -g -Wall
+LFLAGS	= -ldl
 
-mpitest.out: test3.cpp libariescounters.a
-	${CC} ${CFLAGS} -o mpitest.out test3.cpp -L./libariescounters.a ${LFLAGS}
+all: mpitest
 
-libariescounters.a: AriesCounters.h
+mpitest: test.cpp libariesncl.a
+	${CC} ${CFLAGS} -o mpitest test.cpp -L./libariesncl.a ${LFLAGS}
+
+libariesncl.a: AriesCounters.h
 	${CC} ${CFLAGS} -c AriesCounters.h ${LFLAGS}
-	ar -cvq libariescounters.a AriesCounters.o
+	ar -cvq libariesncl.a AriesCounters.o
 
 clean : 
-	rm -f mpitest.out AriesCounters.o libariescounters.a
+	rm -f mpitest AriesCounters.o libariesncl.a
 	
