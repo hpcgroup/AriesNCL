@@ -20,22 +20,27 @@ Call the function below to initialize PAPI and set up the counters. It expects
 a file called 'counters.txt' in the same directory as the executable with a
 newline-delimeted list of counter names to record:
 ```
-void InitAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void InitAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set,
+char*** AC_events, long long** AC_values, int* AC_event_count)
 ```
 
 Start recording counters:
 ```
-void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int*
+AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 ```
 
 Stop recording counters. Writes out a binary file:
 ```
-void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int
+reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events,
+long long** AC_values, int* AC_event_count)
 ```
 
 Cleans up memory, stops PAPI:
 ```
-void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int*
+AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 ```
 
 ### Test
