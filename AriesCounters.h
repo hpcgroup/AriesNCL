@@ -14,7 +14,6 @@
 // Please also read the LICENSE file for our notice and the LGPL.
 //////////////////////////////////////////////////////////////////////////////
 
-
 #ifndef ARIESCOUNTERS_H
 #define ARIESCOUNTERS_H
 
@@ -47,8 +46,8 @@ void timestamp()
 int region = 1;
 /* store the name of the caller to write distinct files */
 char *caller_program;
-/* buffer for rank 0 to gather counters */
-long long * counter_data;
+/* buffer for rank 0 to gather counters at the end */
+long long *counter_data;
 
 /* utilities for timing each region/timestep */
 struct timeval tempo1, tempo2;
@@ -70,6 +69,15 @@ void EndSysTimer() {
 	elapsed_utime = (elapsed_seconds) * 1000000 + elapsed_useconds;
 	elapsed_mtime = ((elapsed_seconds) * 1000 + elapsed_useconds/1000.0) + 0.5;
 }
+
+/* Store counters in memory in a linked list, reporting them to rank 0 at the end. */
+struct timestep_counters {
+	long long *counters;
+	int timestep;
+	struct timestep_counters *next;
+};
+
+struct timestep_counters *counters_list;
 
 /* library methods */
 void ReadAriesCountersFile(char*** AC_events, int* AC_event_count) {
@@ -158,8 +166,13 @@ void InitAriesCounters(char *progname, int my_rank, int reporting_rank_mod, int*
 	int size;
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	number_of_reporting_ranks = (size-1)/reporting_rank_mod + 1; // integer division is fine; we want the floor
+
+	// Ranks need to collect counters in memory.
+	// Initialize the linked list here.
+	counters_list = NULL;
+
 	
-	/* Rank 0 needs to write out counter info.
+	/* Rank 0 needs to write out counter info at the end.
 	   First space needs to be allocated to recieve the data */
 	// Array of longlong equal to number of reporting ranks * number of counters
 	// Also set the program name here
@@ -197,12 +210,12 @@ void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event
 	StartSysTimer();	
 }
 
-void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
 
 	if (my_rank == 0) { 
-	  printf("counters: Writing out counters for timestep.\n");
+	  printf("counters: Collecting counters for timestep.\n");
 	  timestamp();
 	}
 
@@ -212,32 +225,62 @@ void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_ran
 	PAPI_stop(*AC_event_set, *AC_values);
 	PAPI_reset(*AC_event_set);
 
+	// Store the counters in linked list in memory.
+	struct timestep_counters *new_counters = (struct timestep_counters *)malloc(sizeof(struct timestep_counters));
+	// Copy the counters.
+	int num_bytes = sizeof(long long) * (*AC_event_count);
+	new_counters->counters = (long long *)malloc(num_bytes);
+	memcpy(new_counters->counters, *AC_values, num_bytes);
+
+	// Store the region number.
+	new_counters->timestep = region;
+
+	// Insert at the head of the list for convenience.
+	new_counters->next = counters_list;
+	counters_list = new_counters;
+
+	region++;
+
+	if (my_rank == 0) { 
+	  printf("counters: Done collecting.\n");
+	  timestamp();
+	}
+}
+
+void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+{
+	if (my_rank % reporting_rank_mod != 0) { return; }
+
+	// Collect all the counters to rank 0 and dump them to binary files.
 	int size;
 	int number_of_reporting_ranks;
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	number_of_reporting_ranks = (size-1)/reporting_rank_mod + 1; // integer division is fine; we want the floor
 
-	/* MPI_Gather to collect counters from all ranks % 0 */
-	MPI_Gather(*AC_values, *AC_event_count, MPI_LONG_LONG,
-		counter_data, *AC_event_count, MPI_LONG_LONG, 0, *mod16_comm);
+	// Walk the list of timestep counters, and for each one print out the data to a binary file.
+	struct timestep_counters *ref = counters_list;
+	while (ref) {
 
-	/* EXPERIMENTAL -- write out counter_data in binary, and read back in later to generate yaml. */
-	if (my_rank == 0) {
-		char filename[50];
-		sprintf(filename, "%s.tiles.%d.bin", caller_program, region);
-		FILE* fp = fopen(filename, "w");
-		fwrite(counter_data, sizeof(long long), number_of_reporting_ranks * *AC_event_count, fp);
+		/* MPI_Gather to collect counters from all ranks % 0 */
+		MPI_Gather(ref->counters, *AC_event_count, MPI_LONG_LONG,
+			counter_data, *AC_event_count, MPI_LONG_LONG, 0, *mod16_comm);
 
-		fclose(fp);
+		/* Write out counter_data in binary, and read back in later to generate yaml. */
+		if (my_rank == 0) {
+			int timestep = ref->timestep;
+			char filename[50];
+			sprintf(filename, "%s.tiles.%d.bin", caller_program, timestep);
+			FILE* fp = fopen(filename, "w");
+			fwrite(counter_data, sizeof(long long), number_of_reporting_ranks * (*AC_event_count), fp);
 
-		region++;
+			fclose(fp);
+		}
+		// Have everyone wait until rank 0 finishes, since it may take a while.
+		MPI_Barrier(*mod16_comm);
+
+		ref = ref->next;
 	}
-}
 
-void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
-{
-	if (my_rank % reporting_rank_mod != 0) { return; }
-	
 	// cleanup malloc
 	int i;
 	for (i = 0; i < *AC_event_count; i++)
@@ -251,6 +294,16 @@ void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_se
 	free(counter_data);
 	free(caller_program);
 
+	// Cleanup timestep lists
+	ref = counters_list;
+	while (ref) {
+		struct timestep_counters *curr = ref;
+		ref = ref->next;
+		free(curr->counters);
+		free(curr);
+	}
+
+	// Cleanup papi
 	PAPI_cleanup_eventset(*AC_event_set);
 	PAPI_destroy_eventset(AC_event_set);
 	PAPI_shutdown();

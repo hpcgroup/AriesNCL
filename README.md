@@ -30,17 +30,17 @@ void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int*
 AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 ```
 
-Stop recording counters. Writes out a binary file:
+Stop recording counters. Stores counters in memory until FinalizeAriesCounters called:
 ```
-void EndRecordAriesCounters(MPI_Comm* mod16_comm, int my_rank, int
+void EndRecordAriesCounters(int my_rank, int
 reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events,
 long long** AC_values, int* AC_event_count)
 ```
 
-Cleans up memory, stops PAPI:
+Writes out all the counters to binary files, cleans up memory, stops PAPI:
 ```
-void FinalizeAriesCounters(int my_rank, int reporting_rank_mod, int*
-AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+void FinalizeAriesCounters(MPI_Comm *mod16_comm, int my_rank, int reporting_rank_mod,
+int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 ```
 
 Recover counters from binary file and write out to .yaml files:
