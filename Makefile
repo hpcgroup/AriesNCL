@@ -19,15 +19,18 @@ CC	= cc
 CFLAGS	= -O3 -g -Wall
 LFLAGS	= -ldl
 
-all: mpitest
+all: mpitest RecoverAriesCounters 
 
-mpitest: test.cpp libariesncl.a
-	${CC} ${CFLAGS} -o mpitest test.cpp -L./libariesncl.a ${LFLAGS}
+mpitest: test.cpp librariesncl.a
+	${CC} ${CFLAGS} -o mpitest test.cpp -L./librariesncl.a ${LFLAGS}
 
-libariesncl.a: AriesCounters.h
+librariesncl.a: AriesCounters.h
 	${CC} ${CFLAGS} -c AriesCounters.h ${LFLAGS}
-	ar -cvq libariesncl.a AriesCounters.o
+	ar -cvq librariesncl.a AriesCounters.o
+
+RecoverAriesCounters: RecoverAriesCounters.c librariesncl.a
+	${CC} ${CFLAGS} -o RecoverAriesCounters RecoverAriesCounters.c -L./librariesncl.a ${LFLAGS}
 
 clean : 
-	rm -f mpitest AriesCounters.o libariesncl.a
+	rm -f mpitest RecoverAriesCounters AriesCounters.o librariesncl.a
 	

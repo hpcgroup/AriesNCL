@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 	MPI_Group_incl(group_world, 2, members, &mod16_group);
 	MPI_Comm_create(MPI_COMM_WORLD, mod16_group, &mod16_comm);
 
-	InitAriesCounters(taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
+	InitAriesCounters(argv[0], taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
 	StartRecordAriesCounters(taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
 	
 	sleep(10);
