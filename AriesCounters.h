@@ -270,7 +270,7 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 			int timestep = ref->timestep;
 			char filename[50];
 			sprintf(filename, "%s.tiles.%d.bin", caller_program, timestep);
-			FILE* fp = fopen(filename, "w");
+			FILE* fp = fopen(filename, "wb");
 			fwrite(counter_data, sizeof(long long), number_of_reporting_ranks * (*AC_event_count), fp);
 
 			fclose(fp);
@@ -309,42 +309,17 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 	PAPI_shutdown();
 }
 
-void ReadAriesCountersBinary(int number_of_reporting_ranks, int reporting_rank_mod, char* bin_filename, char*** AC_events, int* AC_event_count) {
+void ReadAriesCountersBinary(int number_of_reporting_ranks, int reporting_rank_mod, char* bin_filename, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count) {
 	// Allocate buffer to read back into
 	counter_data = (long long*)malloc(sizeof(long long) * number_of_reporting_ranks * *AC_event_count); 
 
 	// Read back the counters from the binary file
-	FILE* fp = fopen(bin_filename, "r");
+	FILE* fp = fopen(bin_filename, "rb");
 	fread(counter_data, sizeof(long long), number_of_reporting_ranks * *AC_event_count, fp);
 	fclose(fp);
 
-	// Expect that bin_filename is format: "exe_name.tiles.%d.bin"
-	char* temp = (char *)malloc(sizeof(char) * strlen(bin_filename));  // Save a reference to free this after.
-	strcpy(temp, bin_filename);
-
-        char* region = temp;
-        while (*region != '.') {
-        	region++;
-        }
-        *region = '\0';  // Want to extract exe_name, so set end as null.
-        // Region should now point right before "tiles".
-	region = region + 7;
-	char* ref = region;
-	while( *ref != '.' ) {
-		ref++;
-	}
-	*ref = '\0';  // This extracts the timestep.
-
-	int timestep = atoi(region);
-        char *exe_name = temp;
-
-	char filename[50];
-	sprintf(filename, "%s.networktiles.%d.yaml", exe_name, timestep);
-
-	//free(temp);
-
 	int i,j;
-	fp = fopen(filename, "w");
+	fp = fopen(nettilefile, "w");
 	/* print out in yaml -- same format as in boxfish */
 	fprintf(fp, "---\nkey: ARIESCOUNTER_NETWORK\n---\n");
 	fprintf(fp, "- [mpirank, int32]\n");
@@ -425,8 +400,7 @@ void ReadAriesCountersBinary(int number_of_reporting_ranks, int reporting_rank_m
 	}
 	fclose(fp);
 
-	sprintf(filename, "%s.proctiles.%d.yaml", exe_name, timestep);
-	fp = fopen(filename, "w");
+	fp = fopen(proctilefile, "w");
 
 	/* print out in yaml -- same format as in boxfish */
 	fprintf(fp, "---\nkey: ARIESCOUNTER_PROC\n---\n");
@@ -499,8 +473,7 @@ void ReadAriesCountersBinary(int number_of_reporting_ranks, int reporting_rank_m
 			}
 		}
 	}
-	free(temp);
-
+	fclose(fp);
 }
 
 #endif
