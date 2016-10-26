@@ -77,7 +77,11 @@ struct timestep_counters {
 	struct timestep_counters *next;
 };
 
+/* The list of counters which will be printed at the end */
 struct timestep_counters *counters_list;
+/* A list of free linked list nodes so we don't have to keep calling malloc.
+   Helpful for fine-grained profiling where some counters may be discarded. */
+struct timestep_counters *free_counters_struct = NULL;
 
 /* library methods */
 void ReadAriesCountersFile(char*** AC_events, int* AC_event_count) {
@@ -195,6 +199,7 @@ void InitAriesCounters(char *progname, int my_rank, int reporting_rank_mod, int*
 	}
 }
 
+/* Start recording Aries counters with timestamp printed (useful for timing in coarse-grain profiling) */
 void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
@@ -210,6 +215,19 @@ void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event
 	StartSysTimer();	
 }
 
+/* Start recording Aries counters WITHOUT timestamp printed (useful for fine-grain profiling, where too many print statements would be overwhelming) */
+void StartRecordQuietAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+{
+	if (my_rank % reporting_rank_mod != 0) { return; }
+
+	PAPI_start(*AC_event_set);
+
+	// Start a timer to measure elapsed time
+	StartSysTimer();	
+}
+
+/* End recording counters with timestamp printed (useful for coarse-grain profiling).
+   Adds the counters to the list of counters to be printed at the end. */
 void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {
 	if (my_rank % reporting_rank_mod != 0) { return; }
@@ -246,6 +264,63 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, double run_time
 	  timestamp();
 	}
 }
+
+/* End recording counters WITHOUT timestamp printed (useful for fine-grain profiling).
+   DOES NOT add the counters to the list of counters to be printed at the end;
+   instead, returns the counters to the caller so that the caller may determine whether or not to save them.
+   Caller should later call ReturnAriesCounters to discard them or PutAriesCounters to add them to the list to be printed. */
+struct timestep_counters *EndRecordQuietAriesCounters(int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+{
+	if (my_rank % reporting_rank_mod != 0) { return NULL; }
+
+	// Stop timer for elapsed time
+	EndSysTimer();
+
+        // Collect the counters via papi.
+	PAPI_stop(*AC_event_set, *AC_values);
+	PAPI_reset(*AC_event_set);
+
+	// Store the counters in linked list in memory.
+        struct timestep_counters *new_counters;
+	int num_bytes = sizeof(long long) * (*AC_event_count);
+        // Use a free struct or malloc a new one.
+        if (free_counters_struct) {
+            new_counters = free_counters_struct;
+            free_counters_struct = free_counters_struct->next;
+        }
+        else {
+	    new_counters = (struct timestep_counters *)malloc(sizeof(struct timestep_counters));
+	    new_counters->counters = (long long *)malloc(num_bytes);
+        }
+	// Copy the counters.
+	memcpy(new_counters->counters, *AC_values, num_bytes);
+
+	// Store the region number.
+	new_counters->timestep = region;
+	region++;
+
+	// Return counters struct to caller.
+        return new_counters;
+}
+
+/* Discard counters which shouldn't be printed at end (useful for fine-grain profiling, where it is impractical to save all counters) */
+void ReturnAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_counters *counters) {
+	if (my_rank % reporting_rank_mod != 0) { return; }
+
+        // Return the struct to the pool.
+        counters->next = free_counters_struct;
+        free_counters_struct = counters;
+}
+
+/* Add the counters to the list of counters which will definitely be printed at the end (only need to call this if EndRecordQuietAriesCounters was used) */
+void PutAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_counters *counters) {
+	if (my_rank % reporting_rank_mod != 0) { return; }
+
+        // Add the struct to the list of counters which will be printed on Finalize.
+        counters->next = counters_list;
+        counters_list = counters;
+}
+
 
 void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 {

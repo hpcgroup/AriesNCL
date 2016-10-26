@@ -37,6 +37,27 @@ reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events,
 long long** AC_values, int* AC_event_count)
 ```
 
+Start/stop recording counters for fine-grain profiling. Does not print timestamps,
+and does not store counters in memory. Instead, returns the counter to the user,
+who can then choose to save them or discard them depending on if they are for an
+"interesting" period.
+```
+void StartRecordQuietAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set,
+char*** AC_events, long long** AC_values, int* AC_event_count)
+```
+```
+struct timestep_counters *EndRecordQuietAriesCounters(int my_rank, int reporting_rank_mod,
+double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
+```
+
+Either discard or save the counters returned by above (Return... and Put..., respectively):
+```
+void ReturnAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_counters *counters)
+```
+```
+void PutAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_counters *counters)
+```
+
 Writes out all the counters to binary files, cleans up memory, stops PAPI:
 ```
 void FinalizeAriesCounters(MPI_Comm *mod16_comm, int my_rank, int reporting_rank_mod,
@@ -51,8 +72,8 @@ char* bin_filename, char*** AC_events, int* AC_event_count)
 
 ### Test
 
-The main test is test.cpp, which creates the executable mpitest. It is an MPI program.
-To setup the variables required by the function calls look at test.cpp or the
+The main test is test.c, which creates the executable mpitest. It is an MPI program.
+To setup the variables required by the function calls look at test.c or the
 following:
 
 	int AC_event_set;
@@ -91,6 +112,10 @@ RecoverCounters mpitest.tiles.1.out 16 <num_nodes>
 
 Here 16 is the number of rank per node (reporting_rank_mod) which mpitest was run
 with. RecoverCounters also needs to know the number of nodes which mpitest was run on.
+
+Other tests demonstrating repeated calls to collect counters are in test2.c and test3.c.
+The first one demonstrates how to call the "Quiet" functions and save or discard counters.
+The second demonstrates repeated calls to the normal functions (which save counters by default).
 
 ### Release
 
