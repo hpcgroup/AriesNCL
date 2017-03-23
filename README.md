@@ -8,7 +8,7 @@ AriesNCL is a library to monitor and record network router tile performance coun
 ### Build
 
 ```
-make librariescounters.a
+make libariescounters.a
 ```
 
 Make sure module papi is loaded before compiling. You may also need to unload
@@ -18,7 +18,7 @@ the darshan module.
 
 Call the function below to initialize PAPI and set up the counters. It expects
 a file called 'counters.txt' in the same directory as the executable with a
-newline-delimeted list of counter names to record:
+newline-delimited list of counter names to record:
 ```
 void InitAriesCounters(char *progname, int my_rank, int reporting_rank_mod,
 int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
@@ -38,7 +38,7 @@ long long** AC_values, int* AC_event_count)
 ```
 
 Start/stop recording counters for fine-grain profiling. Does not print timestamps,
-and does not store counters in memory. Instead, returns the counter to the user,
+and does not store counters in memory. Instead, returns the counters to the user,
 who can then choose to save them or discard them depending on if they are for an
 "interesting" period.
 ```
@@ -58,16 +58,10 @@ void ReturnAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_co
 void PutAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_counters *counters)
 ```
 
-Writes out all the counters to binary files, cleans up memory, stops PAPI:
+Writes out all the counters to YAML files, cleans up memory, stops PAPI:
 ```
 void FinalizeAriesCounters(MPI_Comm *mod16_comm, int my_rank, int reporting_rank_mod,
 int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
-```
-
-Recover counters from binary file and write out to .yaml files:
-```
-void ReadAriesCountersBinary(int number_of_reporting_ranks, int reporting_rank_mod,
-char* bin_filename, char*** AC_events, int* AC_event_count)
 ```
 
 ### Test
@@ -102,16 +96,9 @@ reporting_rank_mod is the number of ranks per node.
 These must be run on nodes with papi support (i.e. Cray's NPU component). All of
 Edison's compute nodes have this.
 
-Running the test will output a binary file mpitest.tiles.1.bin containing the
-counter data in binary format. To convert the binary format to .yaml, see
-RecoverCounters.c. For example, to recover the counters from the test run:
-
-```
-RecoverCounters mpitest.tiles.1.out 16 <num_nodes>
-```
-
-Here 16 is the number of rank per node (reporting_rank_mod) which mpitest was run
-with. RecoverCounters also needs to know the number of nodes which mpitest was run on.
+Running the test will output YAML files mpitest.nettiles.1.bin and
+mpitest.proctiles.1.bin, containing the counter data for NIC tiles and processor tiles,
+respectively.
 
 Other tests demonstrating repeated calls to collect counters are in test2.c and test3.c.
 The first one demonstrates how to call the "Quiet" functions and save or discard counters.

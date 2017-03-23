@@ -19,26 +19,23 @@ CC	= cc
 CFLAGS	= -O3 -g -Wall
 LFLAGS	= -ldl
 
-all: mpitest mpitest2 mpitest3 RecoverAriesCounters 
+all: mpitest mpitest2 mpitest3
 
-mpitest: test.c librariesncl.a
-	${CC} ${CFLAGS} -o mpitest test.c -L./librariesncl.a ${LFLAGS}
+mpitest: test.c libariesncl.a
+	${CC} ${CFLAGS} -o mpitest test.c -L./libariesncl.a ${LFLAGS}
 
-mpitest2: test2.c librariesncl.a
-	${CC} ${CFLAGS} -o mpitest2 test2.c -L./librariesncl.a ${LFLAGS}
+mpitest2: test2.c libariesncl.a
+	${CC} ${CFLAGS} -o mpitest2 test2.c -L./libariesncl.a ${LFLAGS}
 	
-mpitest3: test3.c librariesncl.a
-	${CC} ${CFLAGS} -o mpitest3 test3.c -L./librariesncl.a ${LFLAGS}
+mpitest3: test3.c libariesncl.a
+	${CC} ${CFLAGS} -o mpitest3 test3.c -L./libariesncl.a ${LFLAGS}
 	
-librariesncl.a: AriesCounters.h
+libariesncl.a: AriesCounters.h
 	${CC} ${CFLAGS} -c AriesCounters.h ${LFLAGS}
-	ar -cvq librariesncl.a AriesCounters.o
-
-RecoverAriesCounters: RecoverAriesCounters.c librariesncl.a
-	${CC} ${CFLAGS} -o RecoverAriesCounters RecoverAriesCounters.c -L./librariesncl.a ${LFLAGS}
+	ar -cvq libariesncl.a AriesCounters.o
 
 clean: 
-	rm -f mpitest* RecoverAriesCounters AriesCounters.o librariesncl.a
+	rm -f mpitest* AriesCounters.o libariesncl.a
 
 reallyclean:
-	rm -f mpitest* RecoverAriesCounters AriesCounters.o librariesncl.a *.bin *.yaml	
+	rm -f mpitest* AriesCounters.o libariesncl.a *.yaml	

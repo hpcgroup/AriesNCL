@@ -24,10 +24,15 @@
 #include <unistd.h> // sleep
 #include <ctype.h> // isdigit
 #include <sys/time.h> // gettimeofday
+#include <time.h>
 
 #include "mpi.h"
 
-#include <time.h>
+
+/* Prototypes for helper functions. */
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count);
+
+/* Function for dumping a timestamp. */
 void timestamp()
 {
     time_t ltime; /* calendar time */
@@ -79,6 +84,7 @@ struct timestep_counters {
 
 /* The list of counters which will be printed at the end */
 struct timestep_counters *counters_list;
+
 /* A list of free linked list nodes so we don't have to keep calling malloc.
    Helpful for fine-grained profiling where some counters may be discarded. */
 struct timestep_counters *free_counters_struct = NULL;
@@ -343,12 +349,12 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 		/* Write out counter_data in binary, and read back in later to generate yaml. */
 		if (my_rank == 0) {
 			int timestep = ref->timestep;
-			char filename[50];
-			sprintf(filename, "%s.tiles.%d.bin", caller_program, timestep);
-			FILE* fp = fopen(filename, "wb");
-			fwrite(counter_data, sizeof(long long), number_of_reporting_ranks * (*AC_event_count), fp);
+			char net_filename[50];
+			sprintf(net_filename, "%s.nettiles.%d.yaml", caller_program, timestep);
+			char proc_filename[50];
+			sprintf(proc_filename, "%s.proctiles.%d.yaml", caller_program, timestep);
 
-			fclose(fp);
+			WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, net_filename, proc_filename, AC_events, AC_event_count);
 		}
 		// Have everyone wait until rank 0 finishes, since it may take a while.
 		MPI_Barrier(*mod16_comm);
@@ -384,17 +390,9 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 	PAPI_shutdown();
 }
 
-void ReadAriesCountersBinary(int number_of_reporting_ranks, int reporting_rank_mod, char* bin_filename, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count) {
-	// Allocate buffer to read back into
-	counter_data = (long long*)malloc(sizeof(long long) * number_of_reporting_ranks * *AC_event_count); 
-
-	// Read back the counters from the binary file
-	FILE* fp = fopen(bin_filename, "rb");
-	fread(counter_data, sizeof(long long), number_of_reporting_ranks * *AC_event_count, fp);
-	fclose(fp);
-
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count) {
 	int i,j;
-	fp = fopen(nettilefile, "w");
+	FILE *fp = fopen(nettilefile, "w");
 	/* print out in yaml -- same format as in boxfish */
 	fprintf(fp, "---\nkey: ARIESCOUNTER_NETWORK\n---\n");
 	fprintf(fp, "- [mpirank, int32]\n");
