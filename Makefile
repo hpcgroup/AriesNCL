@@ -17,21 +17,21 @@
 # If make fails, make sure papi module is loaded! Also try unloading darshan
 CC	= cc
 CFLAGS	= -O3 -g -Wall
-LFLAGS	= -ldl
+LFLAGS	= -L. -lariesncl -ldl
 
 all: mpitest mpitest2 mpitest3
 
 mpitest: test.c libariesncl.a
-	${CC} ${CFLAGS} -o mpitest test.c -L./libariesncl.a ${LFLAGS}
+	${CC} ${CFLAGS} -o mpitest test.c ${LFLAGS}
 
 mpitest2: test2.c libariesncl.a
-	${CC} ${CFLAGS} -o mpitest2 test2.c -L./libariesncl.a ${LFLAGS}
+	${CC} ${CFLAGS} -o mpitest2 test2.c ${LFLAGS}
 	
 mpitest3: test3.c libariesncl.a
-	${CC} ${CFLAGS} -o mpitest3 test3.c -L./libariesncl.a ${LFLAGS}
+	${CC} ${CFLAGS} -o mpitest3 test3.c ${LFLAGS}
 	
-libariesncl.a: AriesCounters.h
-	${CC} ${CFLAGS} -c AriesCounters.h ${LFLAGS}
+libariesncl.a: AriesCounters.c
+	${CC} ${CFLAGS} -c AriesCounters.c ${LFLAGS}
 	ar -cvq libariesncl.a AriesCounters.o
 
 clean: 
