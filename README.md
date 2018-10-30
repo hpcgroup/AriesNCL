@@ -8,7 +8,7 @@ AriesNCL is a library to monitor and record network router tile performance coun
 ### Build
 
 ```
-make libariescounters.a
+make
 ```
 
 Make sure module papi is loaded before compiling. You may also need to unload
