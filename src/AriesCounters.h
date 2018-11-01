@@ -28,25 +28,31 @@ void timestamp();
 void StartSysTimer();
 void EndSysTimer();
 
-/* Store counters in memory in a linked list, reporting them to rank 0 at the end. */
+/* Store counters in memory in a linked list, reporting them to rank 0 at the
+ * end.
+ */
 struct timestep_counters {
-	long long *counters;
-	int timestep;
-	struct timestep_counters *next;
+    long long *counters;
+    int timestep;
+    struct timestep_counters *next;
 };
 
 /* library methods */
 void ReadAriesCountersFile(char*** AC_events, int* AC_event_count);
 void InitAriesCounters(char *progname, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count);
 
-/* Start recording Aries counters with timestamp printed (useful for timing in coarse-grain profiling) */
+/* Start recording Aries counters with timestamp printed (useful for timing in
+ * coarse-grain profiling)
+ */
 void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count);
 
 /* Start recording Aries counters WITHOUT timestamp printed (useful for fine-grain profiling, where too many print statements would be overwhelming) */
 void StartRecordQuietAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count);
 
-/* End recording counters with timestamp printed (useful for coarse-grain profiling).
-   Adds the counters to the list of counters to be printed at the end. */
+/* End recording counters with timestamp printed (useful for coarse-grain
+ * profiling). Adds the counters to the list of counters to be printed at the
+ * end.
+ */
 void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count);
 
 /* End recording counters WITHOUT timestamp printed (useful for fine-grain profiling).
