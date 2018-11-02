@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < 5; i++) {
 		StartRecordAriesCounters(taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
 		sleep(1);
-		EndRecordAriesCounters(taskid, 16, 123.456, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
+		EndRecordAriesCounters(taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
 	}
 
 	FinalizeAriesCounters(&mod16_comm, taskid, 16, &AC_event_set, &AC_events, &AC_values, &AC_event_count);

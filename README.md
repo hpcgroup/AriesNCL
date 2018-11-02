@@ -33,29 +33,8 @@ AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
 Stop recording counters. Stores counters in memory until FinalizeAriesCounters called:
 ```
 void EndRecordAriesCounters(int my_rank, int
-reporting_rank_mod, double run_time, int* AC_event_set, char*** AC_events,
+reporting_rank_mod, int* AC_event_set, char*** AC_events,
 long long** AC_values, int* AC_event_count)
-```
-
-Start/stop recording counters for fine-grain profiling. Does not print timestamps,
-and does not store counters in memory. Instead, returns the counters to the user,
-who can then choose to save them or discard them depending on if they are for an
-"interesting" period.
-```
-void StartRecordQuietAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_set,
-char*** AC_events, long long** AC_values, int* AC_event_count)
-```
-```
-struct timestep_counters *EndRecordQuietAriesCounters(int my_rank, int reporting_rank_mod,
-double run_time, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count)
-```
-
-Either discard or save the counters returned by above (Return... and Put..., respectively):
-```
-void ReturnAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_counters *counters)
-```
-```
-void PutAriesCounters(int my_rank, int reporting_rank_mod, struct timestep_counters *counters)
 ```
 
 Writes out all the counters to YAML files, cleans up memory, stops PAPI:
@@ -66,8 +45,9 @@ int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count
 
 ### Test
 
-The main test is test.c, which creates the executable mpitest. It is an MPI program.
-To setup the variables required by the function calls look at test.c or the
+For an example test, see the tests folder.
+
+To setup the variables required by the function calls look at tests/regions.c or the
 following:
 
 	int AC_event_set;
@@ -96,13 +76,9 @@ reporting_rank_mod is the number of ranks per node.
 These must be run on nodes with papi support (i.e. Cray's NPU component). All of
 Edison's compute nodes have this.
 
-Running the test will output YAML files mpitest.nettiles.1.bin and
-mpitest.proctiles.1.bin, containing the counter data for NIC tiles and processor tiles,
+Running the test will output YAML files mpitest.nettiles.1.yaml and
+mpitest.proctiles.1.yaml, containing the counter data for NIC tiles and processor tiles,
 respectively.
-
-Other tests demonstrating repeated calls to collect counters are in test2.c and test3.c.
-The first one demonstrates how to call the "Quiet" functions and save or discard counters.
-The second demonstrates repeated calls to the normal functions (which save counters by default).
 
 ### Release
 
