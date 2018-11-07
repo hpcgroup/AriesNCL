@@ -45,10 +45,16 @@ int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count
 
 ### Test
 
-For an example test, see the tests folder.
+For an example test, see the tests folder. The test is currently configured for the
+KNL nodes on Cori, and it should be run on 2 nodes with 64 ranks per node:
+```
+cd tests
+make
+srun -n 128 ./regions
+```
 
 To setup the variables required by the function calls look at tests/regions.c or the
-following:
+following (this example is for 16 MPI ranks per node):
 
 	int AC_event_set;
 	char** AC_events;
