@@ -31,28 +31,24 @@
 int region = 1;
 /* store the name of the caller to write distinct files */
 char *caller_program;
-/* buffer for rank 0 to gather counters at the end */
-long long *counter_data;
 
 /* utilities for timing each region/timestep */
-struct timeval tempo1, tempo2;
-long elapsed_utime; 	/* elapsed time in microseconds */
-long elapsed_mtime; 	/* elapsed time in milliseconds */
-long elapsed_seconds; 	/* diff between seconds counter */
-long elapsed_useconds; 	/* diff between microseconds counter */
+unsigned long long tempo1, tempo2;
 
-void StartSysTimer() {
-    gettimeofday(&tempo1, NULL);
+unsigned long long get_time_ns() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000000000ll + tv.tv_usec * 1000ll;
 }
 
-void EndSysTimer() {
-    gettimeofday(&tempo2, NULL);
+void StartSysTimer() {
+    tempo1 = get_time_ns();
+}
 
-    elapsed_seconds = tempo2.tv_sec - tempo1.tv_sec;
-    elapsed_useconds = tempo2.tv_usec - tempo1.tv_usec;
-
-    elapsed_utime = (elapsed_seconds) * 1000000 + elapsed_useconds;
-    elapsed_mtime = ((elapsed_seconds) * 1000 + elapsed_useconds/1000.0) + 0.5;
+/* Returns time elapsed since last call to StartSysTimer, in nanoseconds. */
+unsigned long long EndSysTimer() {
+    tempo2 = get_time_ns();
+    return tempo2 - tempo1;
 }
 
 /* The list of counters which will be printed at the end */
@@ -161,8 +157,6 @@ void InitAriesCounters(char *progname, int my_rank, int reporting_rank_mod, int*
     // Also set the program name here
     if (my_rank == 0)
     {
-	counter_data = (long long*)malloc(sizeof(long long) * number_of_reporting_ranks * *AC_event_count);
-
 	// We want to get just the executable name, not the whole directory if we have an absolute path
 	char *exe_name;
 	char *tok = strtok(progname, "/");
@@ -195,7 +189,7 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_s
     if (my_rank % reporting_rank_mod != 0) { return; }
 
     // Stop timer for elapsed time
-    EndSysTimer();
+    unsigned long long elapsed_time = EndSysTimer();
 
     PAPI_stop(*AC_event_set, *AC_values);
     PAPI_reset(*AC_event_set);
@@ -209,6 +203,9 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_s
 
     // Store the region number.
     new_counters->timestep = region;
+
+    // Store the elapsed time for this rank.
+    new_counters->elapsed_time = elapsed_time;
 
     // Insert at the head of the list for convenience.
     new_counters->next = counters_list;
@@ -227,15 +224,23 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     number_of_reporting_ranks = (size-1)/reporting_rank_mod + 1; // integer division is fine; we want the floor
 
+    // Allocate space to gather counters and timing.
+    long long *counter_data = (long long*)malloc(sizeof(long long) * number_of_reporting_ranks * *AC_event_count);
+    unsigned long long *timer_data = (unsigned long long *)malloc(sizeof(unsigned long long) * number_of_reporting_ranks);
+
     // Walk the list of timestep counters, and for each one print out the data to a binary file.
     struct timestep_counters *ref = counters_list;
     while (ref) {
 
-	/* MPI_Gather to collect counters from all ranks % 0 */
+	/* MPI_Gather to collect counters from all ranks to 0 */
 	MPI_Gather(ref->counters, *AC_event_count, MPI_LONG_LONG,
 		counter_data, *AC_event_count, MPI_LONG_LONG, 0, *mod16_comm);
 
-	/* Write out counter_data in binary, and read back in later to generate yaml. */
+	/* MPI_Gather to collect timing from all ranks to 0 */
+	MPI_Gather(&(ref->elapsed_time), 1, MPI_LONG_LONG,
+		timer_data, 1, MPI_LONG_LONG_INT, 0, *mod16_comm);
+
+	/* Write out counter_data in binary and timer_data in text, and read back in later to generate yaml. */
 	if (my_rank == 0) {
 	    int timestep = ref->timestep;
 	    char net_filename[50];
@@ -243,7 +248,7 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 	    char proc_filename[50];
 	    sprintf(proc_filename, "%s.proctiles.%d.yaml", caller_program, timestep);
 
-	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, net_filename, proc_filename, AC_events, AC_event_count);
+	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, timer_data, net_filename, proc_filename, AC_events, AC_event_count);
 	}
 	// Have everyone wait until rank 0 finishes, since it may take a while.
 	MPI_Barrier(*mod16_comm);
@@ -279,11 +284,17 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
     PAPI_shutdown();
 }
 
-void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count) {
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count) {
     int i,j;
     FILE *fp = fopen(nettilefile, "w");
     /* print out in yaml -- same format as in boxfish */
     fprintf(fp, "---\nkey: ARIESCOUNTER_NETWORK\n---\n");
+
+    for (i = 0; i < number_of_reporting_ranks; i++) {
+	fprintf(fp, "- runtime rank %d (ns): %ld\n", i, timer_data[i]);
+    }
+    fprintf(fp, "---\n");
+
     fprintf(fp, "- [mpirank, int32]\n");
     fprintf(fp, "- [tilex, int32]\n");
     fprintf(fp, "- [tiley, int32]\n");
@@ -366,6 +377,12 @@ void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, l
 
     /* print out in yaml -- same format as in boxfish */
     fprintf(fp, "---\nkey: ARIESCOUNTER_PROC\n---\n");
+
+    for (i = 0; i < number_of_reporting_ranks; i++) {
+	fprintf(fp, "- runtime rank %d (ns): %ld\n", i, timer_data[i]);
+    }
+    fprintf(fp, "---\n");
+
     fprintf(fp, "- [mpirank, int32]\n");
     fprintf(fp, "- [tilex, int32]\n");
     fprintf(fp, "- [tiley, int32]\n");

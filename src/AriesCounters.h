@@ -22,8 +22,9 @@
 
 #define MAX_COUNTER_NAME_LENGTH 70
 
+/* Functions for timing that use gettimeofday */
 void StartSysTimer();
-void EndSysTimer();
+unsigned long long EndSysTimer();
 
 /* Store counters in memory in a linked list, reporting them to rank 0 at the
  * end.
@@ -31,6 +32,7 @@ void EndSysTimer();
 struct timestep_counters {
     long long *counters;
     int timestep;
+    unsigned long long elapsed_time; 
     struct timestep_counters *next;
 };
 
@@ -48,6 +50,6 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_s
 
 void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count);
 
-void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count);
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count);
 
 #endif
