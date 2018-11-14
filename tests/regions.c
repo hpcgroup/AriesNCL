@@ -63,11 +63,13 @@ int main(int argc, char *argv[])
 		StartRecordAriesCounters(taskid, cpn, &AC_event_set, &AC_events, &AC_values, &AC_event_count);
 
 		// Test proctile counters by sending i-thousand ints of data.
+		int msgsize = i * 1000;
 		if (myrank == 0) {
-		    MPI_Send(buf, i * 1000, MPI_INT, cpn, 0, MPI_COMM_WORLD);
+		    printf("Rank 0: sending %ld bytes, sleeping %d seconds\n", sizeof(int) * msgsize, i);
+		    MPI_Send(buf, msgsize, MPI_INT, cpn, 0, MPI_COMM_WORLD);
 		}
 		if (myrank == cpn) {
-		    MPI_Recv(buf, i * 1000, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		    MPI_Recv(buf, msgsize, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
 
 		// Test timing by sleeping i seconds.

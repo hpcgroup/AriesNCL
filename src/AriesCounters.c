@@ -247,8 +247,10 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 	    sprintf(net_filename, "%s.nettiles.%d.yaml", caller_program, timestep);
 	    char proc_filename[50];
 	    sprintf(proc_filename, "%s.proctiles.%d.yaml", caller_program, timestep);
+	    char bin_filename[50];
+	    sprintf(bin_filename, "%s.%d.bin", caller_program, timestep);
 
-	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, timer_data, net_filename, proc_filename, AC_events, AC_event_count);
+	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, timer_data, net_filename, proc_filename, bin_filename, AC_events, AC_event_count);
 	}
 	// Have everyone wait until rank 0 finishes, since it may take a while.
 	MPI_Barrier(*mod16_comm);
@@ -284,7 +286,7 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
     PAPI_shutdown();
 }
 
-void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count) {
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, char* nettilefile, char* proctilefile, char* binfile, char*** AC_events, int* AC_event_count) {
     int i,j;
     FILE *fp = fopen(nettilefile, "w");
     /* print out in yaml -- same format as in boxfish */
@@ -327,6 +329,7 @@ void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, l
 
     fprintf(fp, "...");
 
+#ifdef TEXT_COUNTERS
     // for each reporting rank...
     for (i=0; i<number_of_reporting_ranks; i++)
     {
@@ -371,6 +374,7 @@ void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, l
 	    }
 	}
     }
+#endif
     fclose(fp);
 
     fp = fopen(proctilefile, "w");
@@ -408,6 +412,7 @@ void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, l
 
     fprintf(fp, "...");
 
+#ifdef TEXT_COUNTERS
     // for each reporting rank...
     for (i=0; i<number_of_reporting_ranks; i++)
     {
@@ -452,6 +457,14 @@ void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, l
 	    }
 	}
     }
+#endif
     fclose(fp);
+
+#ifndef TEXT_COUNTERS
+    // Write out counters in binary.
+    fp = fopen(binfile, "w");
+    fwrite(counter_data, sizeof(long long), number_of_reporting_ranks * *AC_event_count, fp);
+    fclose(fp);
+#endif
 }
 

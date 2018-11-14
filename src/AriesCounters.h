@@ -50,6 +50,6 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_s
 
 void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count);
 
-void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, char* nettilefile, char* proctilefile, char*** AC_events, int* AC_event_count);
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, char* nettilefile, char* proctilefile, char* binfile, char*** AC_events, int* AC_event_count);
 
 #endif

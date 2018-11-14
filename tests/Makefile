@@ -26,4 +26,4 @@ clean:
 	rm -f regions
 
 reallyclean:
-	rm -f regions *.yaml
+	rm -f regions *.yaml *.bin
