@@ -17,9 +17,6 @@
 #ifndef ARIESCOUNTERS_H
 #define ARIESCOUNTERS_H
 
-#include "mpi.h"
-
-
 #define MAX_COUNTER_NAME_LENGTH 70
 
 /* Functions for timing that use gettimeofday */

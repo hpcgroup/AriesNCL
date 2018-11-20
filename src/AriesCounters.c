@@ -462,7 +462,7 @@ void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, l
 
 #ifndef TEXT_COUNTERS
     // Write out counters in binary.
-    fp = fopen(binfile, "w");
+    fp = fopen(binfile, "wb");
     fwrite(counter_data, sizeof(long long), number_of_reporting_ranks * *AC_event_count, fp);
     fclose(fp);
 #endif

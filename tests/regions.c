@@ -14,12 +14,12 @@
 // Please also read the LICENSE file for our notice and the LGPL.
 //////////////////////////////////////////////////////////////////////////////
 
-#include "AriesCounters.h"
 #include <unistd.h> // sleep
 #include <stdio.h>
 #include <time.h>
 
 #include "mpi.h"
+#include "AriesCounters.h"
 
 
 int main(int argc, char *argv[])
