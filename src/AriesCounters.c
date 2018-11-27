@@ -28,7 +28,9 @@
 
 
 /* counter for regions/timesteps profiled */
-int region = 1;
+int region = 0;
+int write_header = 0;
+
 /* store the name of the caller to write distinct files */
 char *caller_program;
 
@@ -227,9 +229,14 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
     // Allocate space to gather counters and timing.
     long long *counter_data = (long long*)malloc(sizeof(long long) * number_of_reporting_ranks * *AC_event_count);
     unsigned long long *timer_data = (unsigned long long *)malloc(sizeof(unsigned long long) * number_of_reporting_ranks);
+    char json_filename[50];
+    char bin_filename[50];
 
     // Walk the list of timestep counters, and for each one print out the data to a binary file.
     struct timestep_counters *ref = counters_list;
+    if (my_rank == 0)
+	sprintf(json_filename, "%s.timings.json", caller_program);
+
     while (ref) {
 
 	/* MPI_Gather to collect counters from all ranks to 0 */
@@ -243,19 +250,21 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 	/* Write out counter_data in binary and timer_data in text, and read back in later to generate yaml. */
 	if (my_rank == 0) {
 	    int timestep = ref->timestep;
-	    char net_filename[50];
-	    sprintf(net_filename, "%s.nettiles.%d.yaml", caller_program, timestep);
-	    char proc_filename[50];
-	    sprintf(proc_filename, "%s.proctiles.%d.yaml", caller_program, timestep);
-	    char bin_filename[50];
-	    sprintf(bin_filename, "%s.%d.bin", caller_program, timestep);
+	    sprintf(bin_filename, "%s.counters.%d.bin", caller_program, timestep);
 
-	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, timer_data, net_filename, proc_filename, bin_filename, AC_events, AC_event_count);
+	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, timer_data, timestep, json_filename, bin_filename, AC_events, AC_event_count);
 	}
 	// Have everyone wait until rank 0 finishes, since it may take a while.
 	MPI_Barrier(*mod16_comm);
 
 	ref = ref->next;
+    }
+
+    if (my_rank == 0) {
+	FILE *fp = fopen(json_filename, "a");
+	fprintf(fp, "    ]\n");
+	fprintf(fp, "}\n");
+	fclose(fp);
     }
 
     // cleanup malloc
@@ -286,178 +295,44 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
     PAPI_shutdown();
 }
 
-void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, char* nettilefile, char* proctilefile, char* binfile, char*** AC_events, int* AC_event_count) {
-    int i,j;
-    FILE *fp = fopen(nettilefile, "w");
-    /* print out in yaml -- same format as in boxfish */
-    fprintf(fp, "---\nkey: ARIESCOUNTER_NETWORK\n---\n");
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, int timestep, char* jsonfile, char* binfile, char*** AC_events, int* AC_event_count) {
+    int i, j;
+    FILE *fp;
 
-    for (i = 0; i < number_of_reporting_ranks; i++) {
-	fprintf(fp, "- runtime rank %d (ns): %ld\n", i, timer_data[i]);
+    if(write_header == 0) {
+	fp = fopen(jsonfile, "w");
+	fprintf(fp, "{\n");
+	fprintf(fp, "    \"counter_names\": [\n");
+	for (i=0; i<*AC_event_count-1; i++)
+	    fprintf(fp, "        \"%s\",\n", (*AC_events)[i]);
+	fprintf(fp, "        \"%s\"\n", (*AC_events)[*AC_event_count-1]);
+	fprintf(fp, "    ],\n");
+
+	fprintf(fp, "    \"ranks\": [");
+	for (i = 0; i < number_of_reporting_ranks-1; i++)
+	    fprintf(fp, "%d, ", i * reporting_rank_mod);
+	fprintf(fp, "%d", (number_of_reporting_ranks-1) * reporting_rank_mod);
+	fprintf(fp, "],\n");
+
+	fprintf(fp, "    \"timings\": [\n");
+
+	write_header = 1;
+    } else {
+	fp = fopen(jsonfile, "a");
     }
-    fprintf(fp, "---\n");
 
-    fprintf(fp, "- [mpirank, int32]\n");
-    fprintf(fp, "- [tilex, int32]\n");
-    fprintf(fp, "- [tiley, int32]\n");
+    fprintf(fp, "        {\n");
+    fprintf(fp, "            \"timestep\": %d,\n", timestep);
+    fprintf(fp, "            \"time\": [");
+    for (i = 0; i < number_of_reporting_ranks-1; i++)
+	fprintf(fp, "%ld, ", timer_data[i]);
+    fprintf(fp, "%ld", timer_data[number_of_reporting_ranks-1]);
+    fprintf(fp, "]\n");
+    if(timestep == 0)
+	fprintf(fp, "        }\n");
+    else
+	fprintf(fp, "        },\n");
 
-    fprintf(fp, "- [\"COLBUF_PERF_STALL_RQ:COL_BUF_PERF_STALL_RQ\", int128]\n");
-    fprintf(fp, "- [\"COLBUF_PERF_STALL_RQ:VC_PTR\", int128]\n");
-    fprintf(fp, "- [\"COLBUF_PERF_STALL_RS:COL_BUF_PERF_STALL_RS\", int128]\n");
-    fprintf(fp, "- [\"COLBUF_PERF_STALL_RS:VC_PTR\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC0\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC1\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC2\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC3\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC4\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC5\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC6\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC7\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC0_FILTER_FLIT0_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC1_FILTER_FLIT1_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC2_FILTER_FLIT2_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC3_FILTER_FLIT3_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC4_FILTER_FLIT4_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC5_FILTER_FLIT5_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC6_FILTER_FLIT6_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC7_FILTER_FLIT7_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_3_TO_0_FILTERING_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_7_TO_4_FILTERING_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_PKT_TO_DEAD_LINK_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_ROWBUS_2X_USAGE_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_ROWBUS_STALL_CNT\", int128]\n");
-
-    fprintf(fp, "...");
-
-#ifdef TEXT_COUNTERS
-    // for each reporting rank...
-    for (i=0; i<number_of_reporting_ranks; i++)
-    {
-	int reporting_rank = i * reporting_rank_mod;
-	int new_coord = 1; // 1=True, 0=False. This determines whether we should go to new line
-	int x=-1, y=-1;
-
-	// loop through counters of this particular rank
-	// this loop assumes that once a coordinate comes up, (i.e. a particular XY)
-	// all the other counters of that coord will directly follow
-	// and the coordinate will not show up again once a different coordinate appears
-	for (j=0; j<*AC_event_count; j++)
-	{
-	    // need to extract network tile coordinates from counter name
-	    // XY is either at pos 7 and 9 or 10 and 12
-	    if (isdigit((*AC_events)[j][7]))
-	    {
-		if ((*AC_events)[j][7] - '0' != x || (*AC_events)[j][9] - '0' != y)
-		{
-		    new_coord = 1;
-		}
-		x = (*AC_events)[j][7] - '0';
-		y = (*AC_events)[j][9] - '0';
-	    }
-	    else
-	    {
-		if ((*AC_events)[j][10] - '0' != x || (*AC_events)[j][12] - '0' != y)
-		{
-		    new_coord = 1;
-		}
-		x = (*AC_events)[j][10] - '0';
-		y = (*AC_events)[j][12] - '0';
-	    }
-	    if (new_coord && x != 5)
-	    {
-		fprintf(fp, "\n%d %d %d", reporting_rank, x, y);
-		new_coord = 0;
-	    }
-	    if (x != -1 && x != 5 && y != -1)
-	    {
-		fprintf(fp, " %lld", counter_data[i * (*AC_event_count) + j]);
-	    }
-	}
-    }
-#endif
-    fclose(fp);
-
-    fp = fopen(proctilefile, "w");
-
-    /* print out in yaml -- same format as in boxfish */
-    fprintf(fp, "---\nkey: ARIESCOUNTER_PROC\n---\n");
-
-    for (i = 0; i < number_of_reporting_ranks; i++) {
-	fprintf(fp, "- runtime rank %d (ns): %ld\n", i, timer_data[i]);
-    }
-    fprintf(fp, "---\n");
-
-    fprintf(fp, "- [mpirank, int32]\n");
-    fprintf(fp, "- [tilex, int32]\n");
-    fprintf(fp, "- [tiley, int32]\n");
-
-    fprintf(fp, "- [\"COLBUF_PERF_STALL_RQ\", int128]\n");
-    fprintf(fp, "- [\"COLBUF_PERF_STALL_RS\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC0\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_FLIT_VC4\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC0_FILTER_FLIT0_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC1_FILTER_FLIT1_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC2_FILTER_FLIT2_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC3_FILTER_FLIT3_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC4_FILTER_FLIT4_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC5_FILTER_FLIT5_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC6_FILTER_FLIT6_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_INCOMING_PKT_VC7_FILTER_FLIT7_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_3_TO_0_FILTERING_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_MATCH_FLIT_7_TO_4_FILTERING_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_PKT_TO_DEAD_LINK_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_REQ_ROWBUS_STALL_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_ROWBUS_2X_USAGE_CNT\", int128]\n");
-    fprintf(fp, "- [\"INQ_PRF_RSP_ROWBUS_STALL_CNT\", int128]\n");
-
-    fprintf(fp, "...");
-
-#ifdef TEXT_COUNTERS
-    // for each reporting rank...
-    for (i=0; i<number_of_reporting_ranks; i++)
-    {
-	int reporting_rank = i * reporting_rank_mod;
-	int new_coord = 1; // 1=True, 0=False. This determines whether we should go to new line
-	int x=-1, y=-1;
-
-	// loop through counters of this particular rank
-	// this loop assumes that once a coordinate comes up, (i.e. a particular XY)
-	// all the other counters of that coord will directly follow
-	// and the coordinate will not show up again once a different coordinate appears
-	for (j=0; j<*AC_event_count; j++)
-	{
-	    // need to extract network tile coordinates from counter name
-	    // XY is either at pos 7 and 9 or 10 and 12
-	    if (isdigit((*AC_events)[j][7]))
-	    {
-		if ((*AC_events)[j][7] - '0' != x || (*AC_events)[j][9] - '0' != y)
-		{
-		    new_coord = 1;
-		}
-		x = (*AC_events)[j][7] - '0';
-		y = (*AC_events)[j][9] - '0';
-	    }
-	    else
-	    {
-		if ((*AC_events)[j][10] - '0' != x || (*AC_events)[j][12] - '0' != y)
-		{
-		    new_coord = 1;
-		}
-		x = (*AC_events)[j][10] - '0';
-		y = (*AC_events)[j][12] - '0';
-	    }
-	    if (new_coord && x == 5 && y != -1)
-	    {
-		fprintf(fp, "\n%d %d %d", reporting_rank, x, y);
-		new_coord = 0;
-	    }
-	    if (x == 5 && y != -1)
-	    {
-		fprintf(fp, " %lld", counter_data[i * (*AC_event_count) + j]);
-	    }
-	}
-    }
-#endif
     fclose(fp);
 
 #ifndef TEXT_COUNTERS

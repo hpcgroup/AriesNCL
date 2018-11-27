@@ -1,3 +1,6 @@
 *.o
 
 src/libariesncl.a
+tests/regions
+tests/regions.counters*bin
+tests/regions.timings.json
