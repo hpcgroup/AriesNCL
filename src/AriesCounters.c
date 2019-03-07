@@ -37,6 +37,27 @@ char *caller_program;
 /* utilities for timing each region/timestep */
 unsigned long long tempo1, tempo2;
 
+struct timeval startTime;
+
+struct timeval get_timestamp() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv;
+}
+
+char *get_formatted_timestamp(struct timeval tv) {
+    time_t nowtime;
+    struct tm *nowtm;
+    char *tmbuf = (char *)malloc(50 * sizeof(char));
+
+    nowtime = tv.tv_sec;
+    nowtm = localtime(&nowtime);
+    // 2019-03-06 07:34:26 PST
+    strftime(tmbuf, 51, "%Y-%m-%d %H:%M:%S %Z", nowtm);
+
+    return tmbuf;
+}
+
 unsigned long long get_time_ns() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -181,6 +202,8 @@ void StartRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event
 
     // Start a timer to measure elapsed time
     StartSysTimer();	
+    startTime = get_timestamp();
+
 }
 
 /* End recording counters for current region. Adds the counters to the list of
@@ -192,6 +215,7 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_s
 
     // Stop timer for elapsed time
     unsigned long long elapsed_time = EndSysTimer();
+    struct timeval endTime = get_timestamp();
 
     PAPI_stop(*AC_event_set, *AC_values);
     PAPI_reset(*AC_event_set);
@@ -208,6 +232,8 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_s
 
     // Store the elapsed time for this rank.
     new_counters->elapsed_time = elapsed_time;
+    new_counters->start_time = startTime;
+    new_counters->end_time = endTime;
 
     // Insert at the head of the list for convenience.
     new_counters->next = counters_list;
@@ -229,6 +255,9 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
     // Allocate space to gather counters and timing.
     long long *counter_data = (long long*)malloc(sizeof(long long) * number_of_reporting_ranks * *AC_event_count);
     unsigned long long *timer_data = (unsigned long long *)malloc(sizeof(unsigned long long) * number_of_reporting_ranks);
+    struct timeval *start_times = (struct timeval *)malloc(sizeof(struct timeval) * number_of_reporting_ranks);
+    struct timeval *end_times = (struct timeval *)malloc(sizeof(struct timeval) * number_of_reporting_ranks);
+
     char json_filename[50];
     char bin_filename[50];
 
@@ -247,12 +276,19 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
 	MPI_Gather(&(ref->elapsed_time), 1, MPI_LONG_LONG,
 		timer_data, 1, MPI_LONG_LONG_INT, 0, *mod16_comm);
 
+	/* MPI_Gather to collect start and end timestamps from all ranks to 0 */
+	MPI_Gather(&(ref->start_time), sizeof(struct timeval), MPI_BYTE,
+		start_times, sizeof(struct timeval), MPI_BYTE, 0, *mod16_comm);
+
+	MPI_Gather(&(ref->end_time), sizeof(struct timeval), MPI_BYTE,
+		end_times, sizeof(struct timeval), MPI_BYTE, 0, *mod16_comm);
+
 	/* Write out counter_data in binary and timer_data in text, and read back in later to generate yaml. */
 	if (my_rank == 0) {
 	    int timestep = ref->timestep;
 	    sprintf(bin_filename, "%s.counters.%d.bin", caller_program, timestep);
 
-	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, timer_data, timestep, json_filename, bin_filename, AC_events, AC_event_count);
+	    WriteAriesCounters(number_of_reporting_ranks, reporting_rank_mod, counter_data, timer_data, start_times, end_times, timestep, json_filename, bin_filename, AC_events, AC_event_count);
 	}
 	// Have everyone wait until rank 0 finishes, since it may take a while.
 	MPI_Barrier(*mod16_comm);
@@ -295,7 +331,7 @@ void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank
     PAPI_shutdown();
 }
 
-void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, int timestep, char* jsonfile, char* binfile, char*** AC_events, int* AC_event_count) {
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, struct timeval *start_times, struct timeval *end_times, int timestep, char* jsonfile, char* binfile, char*** AC_events, int* AC_event_count) {
     int i, j;
     FILE *fp;
 
@@ -327,6 +363,16 @@ void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, l
     for (i = 0; i < number_of_reporting_ranks-1; i++)
 	fprintf(fp, "%ld, ", timer_data[i]);
     fprintf(fp, "%ld", timer_data[number_of_reporting_ranks-1]);
+    fprintf(fp, "],\n");
+    fprintf(fp, "            \"start\": [");
+    for (i = 0; i < number_of_reporting_ranks-1; i++)
+	fprintf(fp, "%s, ", get_formatted_timestamp(start_times[i]));
+    fprintf(fp, "%s", get_formatted_timestamp(start_times[number_of_reporting_ranks-1]));
+    fprintf(fp, "],\n");
+    fprintf(fp, "            \"end\": [");
+    for (i = 0; i < number_of_reporting_ranks-1; i++)
+	fprintf(fp, "%s, ", get_formatted_timestamp(end_times[i]));
+    fprintf(fp, "%s", get_formatted_timestamp(end_times[number_of_reporting_ranks-1]));
     fprintf(fp, "]\n");
     if(timestep == 0)
 	fprintf(fp, "        }\n");
