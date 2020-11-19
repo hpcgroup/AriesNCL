@@ -17,11 +17,9 @@
 #ifndef ARIESCOUNTERS_H
 #define ARIESCOUNTERS_H
 
-#define MAX_COUNTER_NAME_LENGTH 70
+#include <sys/time.h> // gettimeofday
 
-/* Functions for timing that use gettimeofday */
-void StartSysTimer();
-unsigned long long EndSysTimer();
+#define MAX_COUNTER_NAME_LENGTH 70
 
 /* Store counters in memory in a linked list, reporting them to rank 0 at the
  * end.
@@ -29,7 +27,8 @@ unsigned long long EndSysTimer();
 struct timestep_counters {
     long long *counters;
     int timestep;
-    unsigned long long elapsed_time; 
+    struct timeval start_time;
+    struct timeval end_time;
     struct timestep_counters *next;
 };
 
@@ -47,6 +46,6 @@ void EndRecordAriesCounters(int my_rank, int reporting_rank_mod, int* AC_event_s
 
 void FinalizeAriesCounters(MPI_Comm* mod16_comm, int my_rank, int reporting_rank_mod, int* AC_event_set, char*** AC_events, long long** AC_values, int* AC_event_count);
 
-void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, unsigned long long *timer_data, int timestep, char* jsonfile, char* binfile, char*** AC_events, int* AC_event_count);
+void WriteAriesCounters(int number_of_reporting_ranks, int reporting_rank_mod, long long *counter_data, struct timeval *start_times, struct timeval *end_times, int timestep, char* jsonfile, char* binfile, char*** AC_events, int* AC_event_count);
 
 #endif
